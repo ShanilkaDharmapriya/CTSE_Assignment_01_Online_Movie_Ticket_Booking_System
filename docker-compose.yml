@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: movie-db
+    environment:
+      POSTGRES_DB: moviedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgrespassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  movie-service-backend:
+    build:
+      context: ./movie-service
+      dockerfile: Dockerfile
+    container_name: movie-backend
+    environment:
+      - DB_URL=jdbc:postgresql://postgres-db:5432/moviedb
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-postgrespassword}
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  movie-react-frontend:
+    build:
+      context: ./movie-frontend
+      dockerfile: Dockerfile
+    container_name: movie-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - movie-service-backend
+
+volumes:
+  postgres-data:

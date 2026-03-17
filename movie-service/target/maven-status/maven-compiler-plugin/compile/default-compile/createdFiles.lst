@@ -1,0 +1,9 @@
+com\ticketbooking\movieservice\controller\MovieController.class
+com\ticketbooking\movieservice\dto\MovieDTO.class
+com\ticketbooking\movieservice\repository\MovieRepository.class
+com\ticketbooking\movieservice\entity\Movie.class
+com\ticketbooking\movieservice\exception\ResourceNotFoundException.class
+com\ticketbooking\movieservice\exception\GlobalExceptionHandler.class
+com\ticketbooking\movieservice\service\MovieService.class
+com\ticketbooking\movieservice\MovieServiceApplication.class
+com\ticketbooking\movieservice\config\SecurityConfig.class
