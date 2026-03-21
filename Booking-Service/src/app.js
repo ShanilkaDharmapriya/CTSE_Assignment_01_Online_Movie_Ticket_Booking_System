@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const mongoose = require("mongoose");
 const bookingRoutes = require("./routes/bookingRoutes");
 
 const app = express();
@@ -24,6 +25,16 @@ app.use((error, req, res, next) => {
   return res.status(statusCode).json({ message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Booking Service running on port ${PORT}`);
-});
+// Connect to MongoDB, then start the Booking Service.
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("Booking Service connected to MongoDB");
+    app.listen(PORT, () => {
+      console.log(`Booking Service running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed:", error.message);
+    process.exit(1);
+  });

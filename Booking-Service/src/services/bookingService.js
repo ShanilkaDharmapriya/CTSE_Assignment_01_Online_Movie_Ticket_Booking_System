@@ -1,9 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
-const {
-  addBooking,
-  getAllBookings,
-  getBookingById
-} = require("../models/bookingStore");
+const Booking = require("../models/Booking");
 const {
   getMovieById,
   getShowById,
@@ -81,29 +77,32 @@ async function createBooking(payload) {
     throw paymentError;
   }
 
-  // Save final booking record.
-  const createdBooking = addBooking({
-    bookingId,
+  // Save booking to MongoDB database.
+  const bookingRecord = new Booking({
+    _id: bookingId,
     userId,
     movieId,
     showId,
     seats,
     status: "CONFIRMED"
   });
+  const savedBooking = await bookingRecord.save();
 
-  return createdBooking;
+  return savedBooking;
 }
 
-function getBookings() {
-  return getAllBookings();
+async function getBookings() {
+  // Read all bookings from MongoDB database.
+  return Booking.find();
 }
 
-function getBooking(bookingId) {
-  return getBookingById(bookingId);
+async function getBookingById(bookingId) {
+  // Read one booking from MongoDB using its id.
+  return Booking.findById(bookingId);
 }
 
 module.exports = {
   createBooking,
   getBookings,
-  getBooking
+  getBookingById
 };
