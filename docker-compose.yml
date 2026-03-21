@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+
+  movie-db:
+    image: mongo
+    container_name: movie-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - movie_data:/data/db
+
+  show-db:
+    image: mongo
+    container_name: show-db
+    ports:
+      - "27018:27017"
+    volumes:
+      - show_data:/data/db
+
+  booking-db:
+    image: mongo
+    container_name: booking-db
+    ports:
+      - "27019:27017"
+    volumes:
+      - booking_data:/data/db
+
+  payment-db:
+    image: mongo
+    container_name: payment-db
+    ports:
+      - "27020:27017"
+    volumes:
+      - payment_data:/data/db
+
+volumes:
+  movie_data:
+  show_data:
+  booking_data:
+  payment_data:
