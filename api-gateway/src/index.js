@@ -1,29 +1,28 @@
-// 
+require("dotenv").config();
 const express = require("express");
-const axios = require("axios");
 const cors = require("cors");
 
+const movieRoutes   = require("../routes/movieRoutes");
+const showRoutes    = require("../routes/showRoutes");
+const bookingRoutes = require("../routes/bookingRoutes");
+const paymentRoutes = require("../routes/paymentRoutes");
+
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3000;
+// Mount service routes
+app.use("/movies",   movieRoutes);
+app.use("/shows",    showRoutes);
+app.use("/bookings", bookingRoutes);
+app.use("/payments", paymentRoutes);
 
-// Aggregator: Get movie + shows
-app.get("/movies/:id/details", async (req, res) => {
-  try {
-    const movieId = req.params.id;
-
-    const movie = await axios.get(`http://localhost:4001/movies/${movieId}`);
-    const shows = await axios.get(`http://localhost:4002/shows?movieId=${movieId}`);
-
-    res.json({
-      movie: movie.data,
-      shows: shows.data
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Error fetching data" });
-  }
+// Health check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "API Gateway is running" });
 });
 
-app.listen(PORT, () => console.log(`API Gateway running on ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));
