@@ -34,5 +34,4 @@ app.post("/book", async (req, res) => {
     res.status(500).json({ error: "Booking failed" });
   }
 });
-
 app.listen(PORT, () => console.log(`Booking Service running on ${PORT}`));
