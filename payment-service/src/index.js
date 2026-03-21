@@ -1,22 +1,22 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const connectDB = require("../config/db");
+const { PORT } = require("../config/config");
+const paymentRoutes = require("../routes/paymentRoutes");
+const { processPayment } = require("../controllers/paymentController");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = 4004;
+app.use("/payments", paymentRoutes);
+app.post("/pay", processPayment);
 
-app.post("/pay", (req, res) => {
-  const { movieId, seats } = req.body;
-
-  // Dummy calculation
-  const amount = seats * 10;
-
-  res.json({
-    status: "SUCCESS",
-    amount
-  });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "Payment Service is running" });
 });
 
-app.listen(PORT, () => console.log(`Payment Service running on ${PORT}`));
+connectDB().then(() => {
+  app.listen(PORT, () => console.log(`Payment Service running on port ${PORT}`));
+});

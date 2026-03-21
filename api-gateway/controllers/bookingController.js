@@ -5,7 +5,7 @@ const BOOKING_SERVICE_URL = process.env.BOOKING_SERVICE_URL || "http://booking-s
 // POST /bookings
 const createBooking = async (req, res) => {
   try {
-    const response = await axios.post(`${BOOKING_SERVICE_URL}/book`, req.body);
+    const response = await axios.post(`${BOOKING_SERVICE_URL}/bookings`, req.body);
     res.status(201).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to create booking", error: error.message });
