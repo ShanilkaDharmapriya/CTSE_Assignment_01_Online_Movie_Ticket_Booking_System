@@ -1,13 +1,10 @@
 const { v4: uuidv4 } = require("uuid");
-const {
-  addBooking,
-  getAllBookings,
-  getBookingById
-} = require("../models/bookingStore");
+const Booking = require("../models/Booking");
 const {
   getMovieById,
   getShowById,
-  createPayment
+  createPayment,
+  reduceShowSeats
 } = require("./externalServices");
 
 function convertToNumber(value) {
@@ -68,42 +65,91 @@ async function createBooking(payload) {
 
   // Create booking id and calculate payment amount.
   const bookingId = uuidv4();
-  const paymentAmount = convertToNumber(showDetails.price)
-    ? convertToNumber(showDetails.price) * seats
-    : seats;
+  const showPrice = convertToNumber(showDetails.price);
+  const ticketPrice = showPrice || 0;
+  const paymentAmount = ticketPrice * seats;
 
-  // Process payment before saving booking.
-  try {
-    await createPayment({ bookingId, amount: paymentAmount });
-  } catch (error) {
-    const paymentError = new Error("Payment failed");
-    paymentError.statusCode = 500;
-    throw paymentError;
-  }
-
-  // Save final booking record.
-  const createdBooking = addBooking({
-    bookingId,
+  // Save booking in PENDING state before payment.
+  const bookingRecord = new Booking({
+    _id: bookingId,
     userId,
     movieId,
     showId,
     seats,
-    status: "CONFIRMED"
+    status: "PENDING"
   });
+  await bookingRecord.save();
 
-  return createdBooking;
+  // Process payment after booking creation.
+  try {
+    const paymentResult = await createPayment({
+      bookingId,
+      userId,
+      movieId,
+      showId,
+      seats,
+      amount: paymentAmount,
+      ticketPrice
+    });
+
+    if (paymentResult.paymentStatus !== "SUCCESS") {
+      bookingRecord.status = "FAILED";
+      await bookingRecord.save();
+      const paymentFailureError = new Error("Payment failed");
+      paymentFailureError.statusCode = 402;
+      throw paymentFailureError;
+    }
+  } catch (error) {
+    bookingRecord.status = "FAILED";
+    await bookingRecord.save();
+    const paymentError = new Error("Payment failed");
+    paymentError.statusCode = error.statusCode || error.response?.status || 500;
+    throw paymentError;
+  }
+
+  // Reduce seats only after successful payment.
+  try {
+    await reduceShowSeats(showId, seats);
+  } catch (error) {
+    bookingRecord.status = "FAILED";
+    await bookingRecord.save();
+    const seatUpdateError = new Error("Failed to reserve seats after payment");
+    seatUpdateError.statusCode = 500;
+    throw seatUpdateError;
+  }
+
+  bookingRecord.status = "CONFIRMED";
+  const savedBooking = await bookingRecord.save();
+
+  return savedBooking;
 }
 
-function getBookings() {
-  return getAllBookings();
+async function getBookings(filters = {}) {
+  // Read all bookings from MongoDB database.
+  const query = {};
+  if (filters.userId) {
+    query.userId = filters.userId;
+  }
+  return Booking.find(query);
 }
 
-function getBooking(bookingId) {
-  return getBookingById(bookingId);
+async function getBookingById(bookingId) {
+  // Read one booking from MongoDB using its id.
+  return Booking.findById(bookingId);
+}
+
+async function cancelBookingById(bookingId) {
+  const bookingRecord = await Booking.findById(bookingId);
+  if (!bookingRecord) {
+    return null;
+  }
+  bookingRecord.status = "CANCELLED";
+  return bookingRecord.save();
 }
 
 module.exports = {
   createBooking,
   getBookings,
-  getBooking
+  getBookingById,
+  cancelBookingById
 };

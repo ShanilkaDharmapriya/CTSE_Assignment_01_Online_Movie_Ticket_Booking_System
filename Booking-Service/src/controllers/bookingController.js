@@ -1,7 +1,8 @@
 const {
   createBooking,
   getBookings,
-  getBooking
+  getBookingById,
+  cancelBookingById
 } = require("../services/bookingService");
 
 async function createBookingHandler(req, res, next) {
@@ -15,22 +16,44 @@ async function createBookingHandler(req, res, next) {
   }
 }
 
-function getAllBookingsHandler(req, res) {
-  // Return every booking currently saved in the store.
-  return res.status(200).json(getBookings());
+async function getAllBookingsHandler(req, res, next) {
+  try {
+    // Return every booking currently saved in MongoDB.
+    const bookings = await getBookings({ userId: req.query.userId });
+    return res.status(200).json(bookings);
+  } catch (error) {
+    return next(error);
+  }
 }
 
-function getBookingByIdHandler(req, res) {
-  // Find one booking using the id from URL path.
-  const bookingRecord = getBooking(req.params.bookingId);
-  if (!bookingRecord) {
-    return res.status(404).json({ message: "Booking not found" });
+async function getBookingByIdHandler(req, res, next) {
+  try {
+    // Find one booking from MongoDB using the id from URL path.
+    const bookingRecord = await getBookingById(req.params.bookingId);
+    if (!bookingRecord) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    return res.status(200).json(bookingRecord);
+  } catch (error) {
+    return next(error);
   }
-  return res.status(200).json(bookingRecord);
+}
+
+async function cancelBookingByIdHandler(req, res, next) {
+  try {
+    const cancelledBooking = await cancelBookingById(req.params.bookingId);
+    if (!cancelledBooking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    return res.status(200).json(cancelledBooking);
+  } catch (error) {
+    return next(error);
+  }
 }
 
 module.exports = {
   createBookingHandler,
   getAllBookingsHandler,
-  getBookingByIdHandler
+  getBookingByIdHandler,
+  cancelBookingByIdHandler
 };
