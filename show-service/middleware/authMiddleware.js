@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:5000";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5001";
 
 /**
  * Validate JWT via Auth Service and attach user to req.user (and req.auth for compatibility).

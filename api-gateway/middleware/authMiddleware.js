@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
+const { AUTH_SERVICE_URL, isAuthUnreachable } = require("../config/authService");
 
 function extractBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization;
@@ -34,7 +33,13 @@ async function authenticateJWT(req, res, next) {
       req.headers["x-user-email"] = user.email;
     }
   } catch (error) {
-    // No valid user — req.user stays unset
+    if (isAuthUnreachable(error)) {
+      return res.status(503).json({
+        success: false,
+        error: { message: "Auth service unavailable", code: "AUTH_SERVICE_DOWN" },
+      });
+    }
+    // Auth reachable but token invalid / error — continue without user
   }
 
   next();
