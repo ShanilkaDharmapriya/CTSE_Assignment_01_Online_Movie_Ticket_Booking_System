@@ -49,7 +49,7 @@ const getSeatInfo = async (req, res) => {
 // POST /shows
 const createShow = async (req, res) => {
   try {
-    const { movieId, theater, showTime, availableSeats } = req.body;
+    const { movieId, theater, date, showTime, availableSeats } = req.body;
 
     // Validate movie exists
     try {
@@ -64,6 +64,7 @@ const createShow = async (req, res) => {
     const show = new Show({
       movieId,
       theater,
+      date,
       showTime,
       availableSeats,
       reservedSeats: 0,

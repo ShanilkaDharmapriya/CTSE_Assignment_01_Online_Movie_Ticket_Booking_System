@@ -11,6 +11,10 @@ const showSchema = new mongoose.Schema(
       required: [true, "Theater/Hall name is required"],
       trim: true,
     },
+    date: {
+      type: Date,
+      required: [true, "Show date is required"],
+    },
     showTime: {
       type: String,
       required: [true, "Show time is required"],
