@@ -6,6 +6,7 @@ const {
   getSeatInfo,
   createShow,
   updateShow,
+  deleteShow,
 } = require("../controllers/showController");
 
 // GET  /shows              — get all shows (supports ?movieId=)
@@ -22,5 +23,8 @@ router.post("/", createShow);
 
 // PUT  /shows/:showId      — update show details
 router.put("/:showId", updateShow);
+
+// DELETE /shows/:showId    — delete a show
+router.delete("/:showId", deleteShow);
 
 module.exports = router;

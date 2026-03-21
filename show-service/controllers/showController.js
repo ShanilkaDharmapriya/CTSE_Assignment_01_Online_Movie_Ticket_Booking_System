@@ -94,10 +94,24 @@ const updateShow = async (req, res) => {
   }
 };
 
+// DELETE /shows/:showId
+const deleteShow = async (req, res) => {
+  try {
+    const deletedShow = await Show.findByIdAndDelete(req.params.showId);
+    if (!deletedShow) {
+      return res.status(404).json({ message: "Show not found" });
+    }
+    res.status(200).json({ message: "Show deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete show", error: error.message });
+  }
+};
+
 module.exports = {
   getAllShows,
   getShowById,
   getSeatInfo,
   createShow,
   updateShow,
+  deleteShow,
 };
