@@ -5,7 +5,7 @@ const {
   STRIPE_SECRET_KEY,
   STRIPE_CURRENCY,
   MOVIE_SERVICE_URL,
-  SHOW_SERVICE_URL,
+  BOOKING_SERVICE_URL,
 } = require("../config/config");
 
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
@@ -24,21 +24,9 @@ const getMovie = async (movieId) => {
   return response.data;
 };
 
-const getShow = async (showId) => {
-  const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${showId}`);
+const getBooking = async (bookingId) => {
+  const response = await axios.get(`${BOOKING_SERVICE_URL}/bookings/${bookingId}`);
   return response.data;
-};
-
-const getSeatInfo = async (showId) => {
-  const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${showId}/seats`);
-  return response.data;
-};
-
-const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
-  await axios.put(`${SHOW_SERVICE_URL}/shows/${showId}`, {
-    availableSeats,
-    reservedSeats,
-  });
 };
 
 const mapStripeStatus = (status) => {
@@ -54,26 +42,40 @@ const processPayment = async (req, res) => {
 
   if (!req.body.bookingId || !req.body.userId || !req.body.movieId || !req.body.showId || !Number.isInteger(seatCount) || seatCount < 1) {
     return res.status(400).json({
+      success: false,
       message: "bookingId, userId, movieId, showId and a positive seats value are required",
     });
   }
 
   try {
-    const [movie, show, seatInfo] = await Promise.all([
+    const [movie, booking] = await Promise.all([
       getMovie(req.body.movieId),
-      getShow(req.body.showId),
-      getSeatInfo(req.body.showId),
+      getBooking(req.body.bookingId),
     ]);
 
-    if (String(show.movieId) !== String(req.body.movieId)) {
-      return res.status(400).json({ message: "Show does not belong to the specified movie" });
+    if (booking.status !== "PENDING") {
+      return res.status(400).json({ success: false, message: "Payment is allowed only for PENDING bookings" });
     }
 
-    if (seatInfo.availableSeats < seatCount) {
-      return res.status(400).json({ message: "Not enough seats available for this show" });
+    if (String(booking.userId) !== String(req.body.userId)) {
+      return res.status(403).json({ success: false, message: "Booking does not belong to this user" });
     }
 
-    const amount = getTicketPrice(movie) * seatCount;
+    if (String(booking.movieId) !== String(req.body.movieId) || String(booking.showId) !== String(req.body.showId)) {
+      return res.status(400).json({ success: false, message: "Booking details do not match payment request" });
+    }
+
+    if (Number(booking.seats) !== seatCount) {
+      return res.status(400).json({ success: false, message: "Seat count does not match booking" });
+    }
+
+    const expectedAmount = getTicketPrice(movie) * seatCount;
+    const providedAmount = Number(req.body.amount);
+    if (!Number.isFinite(providedAmount) || providedAmount !== expectedAmount) {
+      return res.status(400).json({ success: false, message: "Invalid payment amount" });
+    }
+
+    const amount = expectedAmount;
     const paymentMethod = req.body.paymentMethod || "stripe";
     let paymentStatus = "SUCCESS";
     let stripePaymentIntentId = null;
@@ -103,14 +105,6 @@ const processPayment = async (req, res) => {
       stripePaymentIntentId = paymentIntent.id;
       clientSecret = paymentIntent.client_secret;
       failureReason = paymentIntent.last_payment_error?.message || null;
-    }
-
-    if (paymentStatus === "SUCCESS") {
-      await updateShowSeats(
-        req.body.showId,
-        seatInfo.availableSeats - seatCount,
-        seatInfo.reservedSeats + seatCount
-      );
     }
 
     const payment = await Payment.create({
@@ -152,7 +146,7 @@ const processPayment = async (req, res) => {
       stripePaymentIntentId: payment.stripePaymentIntentId,
     });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to process payment", error: error.message });
+    return res.status(500).json({ success: false, message: "Failed to process payment" });
   }
 };
 
@@ -164,7 +158,7 @@ const getAllPayments = async (req, res) => {
     const payments = await Payment.find(filter).sort({ createdAt: -1 });
     res.status(200).json(payments);
   } catch (error) {
-    res.status(500).json({ message: "Failed to retrieve payments", error: error.message });
+    res.status(500).json({ success: false, message: "Failed to retrieve payments" });
   }
 };
 
@@ -172,11 +166,11 @@ const getPaymentStatus = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id);
     if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
+      return res.status(404).json({ success: false, message: "Payment not found" });
     }
     res.status(200).json(payment);
   } catch (error) {
-    res.status(500).json({ message: "Failed to retrieve payment", error: error.message });
+    res.status(500).json({ success: false, message: "Failed to retrieve payment" });
   }
 };
 
@@ -184,15 +178,15 @@ const refundPayment = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id);
     if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
+      return res.status(404).json({ success: false, message: "Payment not found" });
     }
 
     if (payment.paymentStatus === "REFUNDED") {
-      return res.status(400).json({ message: "Payment is already refunded" });
+      return res.status(400).json({ success: false, message: "Payment is already refunded" });
     }
 
     if (payment.paymentStatus !== "SUCCESS") {
-      return res.status(400).json({ message: "Only successful payments can be refunded" });
+      return res.status(400).json({ success: false, message: "Only successful payments can be refunded" });
     }
 
     if (!stripe || payment.provider === "mock") {
@@ -228,7 +222,7 @@ const refundPayment = async (req, res) => {
       refundId: payment.refundId,
     });
   } catch (error) {
-    res.status(500).json({ message: "Failed to refund payment", error: error.message });
+    res.status(500).json({ success: false, message: "Failed to refund payment" });
   }
 };
 

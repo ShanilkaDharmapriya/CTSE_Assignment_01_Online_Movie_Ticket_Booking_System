@@ -7,6 +7,7 @@ const {
   updateMovie,
   deleteMovie,
 } = require("../controllers/movieController");
+const { requireAuth, requireRole } = require("../middleware/authMiddleware");
 
 // GET  /movies                — list all movies
 router.get("/", getAllMovies);
@@ -15,12 +16,12 @@ router.get("/", getAllMovies);
 router.get("/:id", getMovieById);
 
 // POST /movies                — create movie
-router.post("/", createMovie);
+router.post("/", requireAuth, requireRole("ADMIN"), createMovie);
 
 // PUT  /movies/:id            — update movie
-router.put("/:id", updateMovie);
+router.put("/:id", requireAuth, requireRole("ADMIN"), updateMovie);
 
 // DELETE /movies/:id          — delete movie
-router.delete("/:id", deleteMovie);
+router.delete("/:id", requireAuth, requireRole("ADMIN"), deleteMovie);
 
 module.exports = router;

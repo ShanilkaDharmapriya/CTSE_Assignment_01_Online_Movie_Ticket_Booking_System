@@ -22,7 +22,7 @@ app.use((error, req, res, next) => {
   const statusCode = error.statusCode || 500;
   const message = error.message || "Internal server error";
 
-  return res.status(statusCode).json({ message });
+  return res.status(statusCode).json({ success: false, message });
 });
 
 // Connect to MongoDB, then start the Booking Service.
