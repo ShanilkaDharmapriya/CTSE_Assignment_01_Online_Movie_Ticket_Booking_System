@@ -19,11 +19,10 @@ function buildTokenPayload(user) {
   return {
     userId: user.id,
     email: user.email,
-    role: user.role,
   };
 }
 
-async function register({ name, email, password, role }) {
+async function register({ name, email, password }) {
   if (userStore.findByEmail(email)) {
     const err = new Error('Email already registered');
     err.statusCode = 409;
@@ -31,7 +30,7 @@ async function register({ name, email, password, role }) {
     throw err;
   }
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  const user = userStore.createUser({ name, email, passwordHash, role });
+  const user = userStore.createUser({ name, email, passwordHash });
   return userStore.toPublicUser(user);
 }
 

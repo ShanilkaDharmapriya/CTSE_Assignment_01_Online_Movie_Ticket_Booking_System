@@ -6,7 +6,6 @@ const {
   getSeatInfo,
   createShow,
   updateShow,
-  reduceSeats,
   deleteShow,
 } = require("../controllers/showController");
 
@@ -24,9 +23,6 @@ router.post("/", createShow);
 
 // PUT  /shows/:showId      — update show details
 router.put("/:showId", updateShow);
-
-// PUT  /shows/:showId/seats/reduce    — reduce seats after payment success
-router.put("/:showId/seats/reduce", reduceSeats);
 
 // DELETE /shows/:showId    — delete a show
 router.delete("/:showId", deleteShow);

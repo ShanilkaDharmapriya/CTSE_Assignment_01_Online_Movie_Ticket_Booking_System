@@ -7,7 +7,6 @@ const {
   updateShow,
   getSeatInfo,
 } = require("../controllers/showController");
-const { requireAuth, requireRole } = require("../middleware/authMiddleware");
 
 // GET  /shows                  — list all shows (supports ?movieId=)
 router.get("/", getAllShows);
@@ -16,10 +15,10 @@ router.get("/", getAllShows);
 router.get("/:showId", getShowById);
 
 // POST /shows                  — create show
-router.post("/", requireAuth, requireRole("ADMIN"), createShow);
+router.post("/", createShow);
 
 // PUT  /shows/:showId          — update show
-router.put("/:showId", requireAuth, requireRole("ADMIN"), updateShow);
+router.put("/:showId", updateShow);
 
 // GET  /shows/:showId/seats    — get seat info
 router.get("/:showId/seats", getSeatInfo);

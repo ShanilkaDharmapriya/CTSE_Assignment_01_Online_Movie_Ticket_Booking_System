@@ -7,5 +7,4 @@ module.exports = {
   STRIPE_CURRENCY: process.env.STRIPE_CURRENCY || "usd",
   MOVIE_SERVICE_URL: process.env.MOVIE_SERVICE_URL || "http://localhost:4001",
   SHOW_SERVICE_URL: process.env.SHOW_SERVICE_URL || "http://localhost:4002",
-  BOOKING_SERVICE_URL: process.env.BOOKING_SERVICE_URL || "http://localhost:4003",
 };

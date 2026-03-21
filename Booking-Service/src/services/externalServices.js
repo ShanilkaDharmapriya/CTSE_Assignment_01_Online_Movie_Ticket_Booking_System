@@ -32,15 +32,8 @@ async function createPayment(payload) {
   return response.data;
 }
 
-async function reduceShowSeats(showId, seats) {
-  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
-  const response = await axios.put(`${showServiceBaseUrl}/shows/${showId}/seats/reduce`, { seats });
-  return response.data;
-}
-
 module.exports = {
   getMovieById,
   getShowById,
-  createPayment,
-  reduceShowSeats
+  createPayment
 };

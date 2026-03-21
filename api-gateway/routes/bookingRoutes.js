@@ -6,18 +6,17 @@ const {
   getBookingById,
   cancelBooking,
 } = require("../controllers/bookingController");
-const { requireAuth, requireRole } = require("../middleware/authMiddleware");
 
 // POST   /bookings         — create a booking
-router.post("/", requireAuth, requireRole("CUSTOMER"), createBooking);
+router.post("/", createBooking);
 
 // GET    /bookings         — list all bookings (supports ?userId=)
-router.get("/", requireAuth, getAllBookings);
+router.get("/", getAllBookings);
 
 // GET    /bookings/:id     — single booking
-router.get("/:id", requireAuth, getBookingById);
+router.get("/:id", getBookingById);
 
 // DELETE /bookings/:id     — cancel a booking
-router.delete("/:id", requireAuth, cancelBooking);
+router.delete("/:id", cancelBooking);
 
 module.exports = router;

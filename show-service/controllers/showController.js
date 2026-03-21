@@ -94,35 +94,6 @@ const updateShow = async (req, res) => {
   }
 };
 
-// PUT /shows/:showId/seats/reduce
-const reduceSeats = async (req, res) => {
-  try {
-    const seatsToReduce = Number(req.body.seats);
-    if (!Number.isInteger(seatsToReduce) || seatsToReduce < 1) {
-      return res.status(400).json({ message: "A positive integer seats value is required" });
-    }
-
-    const updatedShow = await Show.findOneAndUpdate(
-      { _id: req.params.showId, availableSeats: { $gte: seatsToReduce } },
-      {
-        $inc: {
-          availableSeats: -seatsToReduce,
-          reservedSeats: seatsToReduce,
-        },
-      },
-      { new: true }
-    );
-
-    if (!updatedShow) {
-      return res.status(400).json({ message: "Not enough seats available" });
-    }
-
-    return res.status(200).json(updatedShow);
-  } catch (error) {
-    return res.status(500).json({ message: "Failed to reduce seats", error: error.message });
-  }
-};
-
 // DELETE /shows/:showId
 const deleteShow = async (req, res) => {
   try {
@@ -142,6 +113,5 @@ module.exports = {
   getSeatInfo,
   createShow,
   updateShow,
-  reduceSeats,
   deleteShow,
 };
