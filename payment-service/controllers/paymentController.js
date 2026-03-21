@@ -29,18 +29,6 @@ const getShow = async (showId) => {
   return response.data;
 };
 
-const getSeatInfo = async (showId) => {
-  const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${showId}/seats`);
-  return response.data;
-};
-
-const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
-  await axios.put(`${SHOW_SERVICE_URL}/shows/${showId}`, {
-    availableSeats,
-    reservedSeats,
-  });
-};
-
 const mapStripeStatus = (status) => {
   if (status === "succeeded") return "SUCCESS";
   if (status === "canceled") return "FAILED";
@@ -59,19 +47,17 @@ const processPayment = async (req, res) => {
   }
 
   try {
-    const [movie, show, seatInfo] = await Promise.all([
+    const [movie, show] = await Promise.all([
       getMovie(req.body.movieId),
       getShow(req.body.showId),
-      getSeatInfo(req.body.showId),
     ]);
 
     if (String(show.movieId) !== String(req.body.movieId)) {
       return res.status(400).json({ message: "Show does not belong to the specified movie" });
     }
 
-    if (seatInfo.availableSeats < seatCount) {
-      return res.status(400).json({ message: "Not enough seats available for this show" });
-    }
+    // Do not compare seatCount to availableSeats here: Booking Service has already
+    // moved seats to reserved (available drops), so that check would fail incorrectly.
 
     const amount = getTicketPrice(movie) * seatCount;
     const paymentMethod = req.body.paymentMethod || "stripe";
@@ -105,13 +91,8 @@ const processPayment = async (req, res) => {
       failureReason = paymentIntent.last_payment_error?.message || null;
     }
 
-    if (paymentStatus === "SUCCESS") {
-      await updateShowSeats(
-        req.body.showId,
-        seatInfo.availableSeats - seatCount,
-        seatInfo.reservedSeats + seatCount
-      );
-    }
+    // Seats are reserved/released by Booking + Show services (reserve-seats / free-seats).
+    // Avoid updating seats here so we do not double-count after booking has already reserved.
 
     const payment = await Payment.create({
       bookingId: req.body.bookingId,

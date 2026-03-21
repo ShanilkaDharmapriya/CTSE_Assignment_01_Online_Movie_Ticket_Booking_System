@@ -46,6 +46,62 @@ const getSeatInfo = async (req, res) => {
   }
 };
 
+// POST /shows/:showId/reserve-seats — called by Booking Service (hold seats before payment)
+const reserveSeats = async (req, res) => {
+  try {
+    const seats = Number(req.body.seats);
+    if (!Number.isInteger(seats) || seats < 1) {
+      return res.status(400).json({ message: "Positive integer seats is required" });
+    }
+
+    const updated = await Show.findOneAndUpdate(
+      { _id: req.params.showId, availableSeats: { $gte: seats } },
+      { $inc: { availableSeats: -seats, reservedSeats: seats } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(400).json({ message: "Not enough seats available" });
+    }
+
+    res.status(200).json({
+      showId: updated._id,
+      availableSeats: updated.availableSeats,
+      reservedSeats: updated.reservedSeats,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to reserve seats", error: error.message });
+  }
+};
+
+// POST /shows/:showId/free-seats — release seats (cancel / payment failure)
+const freeSeats = async (req, res) => {
+  try {
+    const seats = Number(req.body.seats);
+    if (!Number.isInteger(seats) || seats < 1) {
+      return res.status(400).json({ message: "Positive integer seats is required" });
+    }
+
+    const updated = await Show.findOneAndUpdate(
+      { _id: req.params.showId, reservedSeats: { $gte: seats } },
+      { $inc: { availableSeats: seats, reservedSeats: -seats } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(400).json({ message: "Cannot free seats" });
+    }
+
+    res.status(200).json({
+      showId: updated._id,
+      availableSeats: updated.availableSeats,
+      reservedSeats: updated.reservedSeats,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to free seats", error: error.message });
+  }
+};
+
 // POST /shows
 const createShow = async (req, res) => {
   try {
@@ -111,6 +167,8 @@ module.exports = {
   getAllShows,
   getShowById,
   getSeatInfo,
+  reserveSeats,
+  freeSeats,
   createShow,
   updateShow,
   deleteShow,

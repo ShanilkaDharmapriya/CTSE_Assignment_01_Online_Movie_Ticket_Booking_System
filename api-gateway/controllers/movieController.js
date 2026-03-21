@@ -1,12 +1,18 @@
 const axios = require("axios");
 
 const MOVIE_SERVICE_URL = process.env.MOVIE_SERVICE_URL || "http://localhost:4001";
-const SHOW_SERVICE_URL  = process.env.SHOW_SERVICE_URL  || "http://localhost:4002";
+
+const authHeaders = (req) => ({
+  headers: { Authorization: req.headers.authorization },
+});
 
 // GET /movies
 const getAllMovies = async (req, res) => {
   try {
-    const response = await axios.get(`${MOVIE_SERVICE_URL}/movies`);
+    const response = await axios.get(`${MOVIE_SERVICE_URL}/movies`, {
+      params: req.query,
+      ...authHeaders(req),
+    });
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch movies", error: error.message });
@@ -16,7 +22,7 @@ const getAllMovies = async (req, res) => {
 // GET /movies/:id
 const getMovieById = async (req, res) => {
   try {
-    const response = await axios.get(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`);
+    const response = await axios.get(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`, authHeaders(req));
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch movie", error: error.message });
@@ -26,7 +32,7 @@ const getMovieById = async (req, res) => {
 // POST /movies
 const createMovie = async (req, res) => {
   try {
-    const response = await axios.post(`${MOVIE_SERVICE_URL}/movies`, req.body);
+    const response = await axios.post(`${MOVIE_SERVICE_URL}/movies`, req.body, authHeaders(req));
     res.status(201).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to create movie", error: error.message });
@@ -36,7 +42,7 @@ const createMovie = async (req, res) => {
 // PUT /movies/:id
 const updateMovie = async (req, res) => {
   try {
-    const response = await axios.put(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`, req.body);
+    const response = await axios.put(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`, req.body, authHeaders(req));
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to update movie", error: error.message });
@@ -46,7 +52,7 @@ const updateMovie = async (req, res) => {
 // DELETE /movies/:id
 const deleteMovie = async (req, res) => {
   try {
-    const response = await axios.delete(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`);
+    const response = await axios.delete(`${MOVIE_SERVICE_URL}/movies/${req.params.id}`, authHeaders(req));
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to delete movie", error: error.message });

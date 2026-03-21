@@ -3,9 +3,10 @@ const Booking = require("../models/Booking");
 const {
   getMovieById,
   getShowById,
+  reserveShowSeats,
+  freeShowSeats,
   createPayment,
   refundPayment,
-  updateShowSeats
 } = require("./externalServices");
 const { sendBookingConfirmation, sendCancellationNotification } = require("./notificationService");
 
@@ -24,29 +25,24 @@ function generateBookingReference() {
 }
 
 function validateNewBookingInput(payload) {
-  const { userId, movieId, showId, seats } = payload || {};
+  const { movieId, showId, seats } = payload || {};
   const requestedSeatCount = convertToNumber(seats);
 
-  // Basic input check to stop invalid requests early.
-  if (
-    !userId ||
-    !movieId ||
-    !showId ||
-    !Number.isInteger(requestedSeatCount) ||
-    requestedSeatCount <= 0
-  ) {
+  // Basic input check to stop invalid requests early (userId comes from JWT, not body).
+  if (!movieId || !showId || !Number.isInteger(requestedSeatCount) || requestedSeatCount <= 0) {
     const validationError = new Error(
-      "Invalid input: userId, movieId, showId and positive integer seats are required"
+      "Invalid input: movieId, showId and positive integer seats are required"
     );
     validationError.statusCode = 400;
     throw validationError;
   }
 
-  return { userId, movieId, showId, seats: requestedSeatCount };
+  return { movieId, showId, seats: requestedSeatCount };
 }
 
-async function createBooking(payload) {
-  const { userId, movieId, showId, seats } = validateNewBookingInput(payload);
+async function createBooking(payload, authenticatedUserId, authHeader) {
+  const { movieId, showId, seats } = validateNewBookingInput(payload);
+  const userId = String(authenticatedUserId);
 
   // Check movie exists before making a booking.
   let movieDetails;
@@ -68,31 +64,29 @@ async function createBooking(payload) {
     throw showError;
   }
 
-  // Make sure requested seats are available.
+  // Make sure requested seats are available (before atomic reserve).
   if (convertToNumber(showDetails.availableSeats) < seats) {
     const seatError = new Error("Not enough seats available");
     seatError.statusCode = 400;
     throw seatError;
   }
 
-  // Create booking id and calculate payment amount.
+  const pricePerSeat =
+    convertToNumber(showDetails.price) || convertToNumber(movieDetails.pricePerSeat) || 0;
+  const paymentAmount = pricePerSeat * seats;
+
   const bookingId = uuidv4();
   const bookingReference = generateBookingReference();
-  const paymentAmount = convertToNumber(showDetails.price)
-    ? convertToNumber(showDetails.price) * seats
-    : seats;
 
-  // Process payment before saving booking.
-  let paymentData;
+  // Atomically reserve seats in Show Service (holds inventory until payment completes).
   try {
-    paymentData = await createPayment({ bookingId, amount: paymentAmount });
+    await reserveShowSeats(showId, seats);
   } catch (error) {
-    const paymentError = new Error("Payment failed");
-    paymentError.statusCode = 500;
-    throw paymentError;
+    const seatError = new Error("Not enough seats available");
+    seatError.statusCode = 400;
+    throw seatError;
   }
 
-  // Save booking to MongoDB database with full details.
   const bookingRecord = new Booking({
     _id: bookingId,
     bookingReference,
@@ -101,21 +95,52 @@ async function createBooking(payload) {
     showId,
     seats,
     amount: paymentAmount,
-    paymentId: paymentData._id || paymentData.paymentId || null,
-    status: "CONFIRMED",
+    status: "PENDING",
     movieTitle: movieDetails.title,
     theaterName: showDetails.theater,
     showDateTime: showDetails.date,
     notificationSent: false,
   });
-  const savedBooking = await bookingRecord.save();
 
-  // Send confirmation notification asynchronously (don't fail booking if notification fails)
-  sendBookingConfirmation(bookingId).catch(err => 
+  try {
+    await bookingRecord.save();
+  } catch (saveError) {
+    await freeShowSeats(showId, seats).catch(() => {});
+    throw saveError;
+  }
+
+  let paymentData;
+  try {
+    paymentData = await createPayment(
+      {
+        bookingId,
+        userId,
+        movieId,
+        showId,
+        seats,
+        amount: paymentAmount,
+      },
+      authHeader
+    );
+  } catch (error) {
+    bookingRecord.status = "CANCELLED";
+    await bookingRecord.save();
+    await freeShowSeats(showId, seats).catch(() => {});
+    const paymentError = new Error("Payment failed");
+    paymentError.statusCode = error.response?.status === 402 ? 402 : 500;
+    throw paymentError;
+  }
+
+  const payId = paymentData.paymentId || paymentData._id;
+  bookingRecord.paymentId = payId ? String(payId) : null;
+  bookingRecord.status = "CONFIRMED";
+  await bookingRecord.save();
+
+  sendBookingConfirmation(bookingId).catch((err) =>
     console.error("Notification error (non-blocking):", err)
   );
 
-  return savedBooking;
+  return bookingRecord;
 }
 
 /**
@@ -147,7 +172,7 @@ async function getBookingById(bookingId, userId) {
   }
 
   // Verify user owns this booking
-  if (booking.userId !== userId) {
+  if (String(booking.userId) !== String(userId)) {
     const error = new Error("Unauthorized - booking does not belong to user");
     error.statusCode = 403;
     throw error;
@@ -159,47 +184,60 @@ async function getBookingById(bookingId, userId) {
 /**
  * Cancel booking and refund payment
  */
-async function cancelBooking(bookingId, userId, cancellationReason = "User requested") {
-  // Get booking with user verification
+async function cancelBooking(bookingId, userId, cancellationReason = "User requested", authHeader) {
   const booking = await getBookingById(bookingId, userId);
 
-  // Check if booking is already cancelled
   if (booking.status === "CANCELLED") {
     const error = new Error("Booking is already cancelled");
     error.statusCode = 400;
     throw error;
   }
 
-  // If booking has a successful payment, refund it
-  let refundSuccess = true;
+  // Pending booking: no payment yet — release held seats only
+  if (booking.status === "PENDING") {
+    try {
+      await freeShowSeats(booking.showId, booking.seats);
+    } catch (seatError) {
+      console.error("Failed to free seats:", seatError.message);
+    }
+    booking.status = "CANCELLED";
+    booking.cancellationReason = cancellationReason;
+    const updatedBooking = await booking.save();
+    sendCancellationNotification(bookingId).catch((err) =>
+      console.error("Notification error (non-blocking):", err)
+    );
+    return updatedBooking;
+  }
+
+  if (booking.status !== "CONFIRMED") {
+    const error = new Error("Booking cannot be cancelled");
+    error.statusCode = 400;
+    throw error;
+  }
+
   if (booking.paymentId) {
     try {
-      await refundPayment(booking.paymentId);
+      await refundPayment(booking.paymentId, authHeader);
       booking.refundStatus = "SUCCESS";
       booking.refundedAmount = booking.amount;
       booking.refundedAt = new Date();
     } catch (refundError) {
       console.error("Refund failed:", refundError.message);
       booking.refundStatus = "FAILED";
-      refundSuccess = false;
     }
   }
 
-  // Free up seats on the show
   try {
-    await updateShowSeats(booking.showId, booking.seats);
+    await freeShowSeats(booking.showId, booking.seats);
   } catch (seatError) {
     console.error("Failed to update seats:", seatError.message);
-    // Don't fail the cancellation if seat update fails
   }
 
-  // Update booking status
   booking.status = "CANCELLED";
   booking.cancellationReason = cancellationReason;
   const updatedBooking = await booking.save();
 
-  // Send cancellation notification asynchronously (don't fail cancellation if notification fails)
-  sendCancellationNotification(bookingId).catch(err => 
+  sendCancellationNotification(bookingId).catch((err) =>
     console.error("Notification error (non-blocking):", err)
   );
 

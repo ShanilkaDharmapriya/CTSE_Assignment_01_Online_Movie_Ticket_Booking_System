@@ -3,8 +3,7 @@ const axios = require("axios");
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:5000";
 
 /**
- * Authenticate request using JWT token passed from gateway
- * Validates token and sets req.auth = { user } on success
+ * Validate JWT via Auth Service and attach user to req.user (and req.auth for compatibility).
  */
 async function authenticateJWT(req, res, next) {
   const token = extractBearerToken(req);
@@ -19,18 +18,17 @@ async function authenticateJWT(req, res, next) {
     });
 
     if (response.data.success && response.data.data.valid) {
-      req.auth = { user: response.data.data.user };
+      const user = response.data.data.user;
+      req.user = user;
+      req.auth = { user };
     }
   } catch (error) {
-    // Token validation failed, continue
+    // Invalid or expired token — continue without req.user
   }
 
   next();
 }
 
-/**
- * Extract Bearer token from Authorization header
- */
 function extractBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization;
   if (!header || typeof header !== "string") return null;
@@ -39,11 +37,8 @@ function extractBearerToken(req) {
   return token.trim();
 }
 
-/**
- * Require authentication
- */
 function requireAuth(req, res, next) {
-  if (!req.auth || !req.auth.user) {
+  if (!req.user) {
     return res.status(401).json({
       message: "Unauthorized - valid JWT token required",
       code: "UNAUTHORIZED",
@@ -52,24 +47,10 @@ function requireAuth(req, res, next) {
   next();
 }
 
-/**
- * Require admin role
- */
 function requireAdmin(req, res, next) {
-  if (!req.auth || !req.auth.user) {
-    return res.status(401).json({
-      message: "Unauthorized - valid JWT token required",
-      code: "UNAUTHORIZED",
-    });
+  if (!req.user || req.user.role !== "ADMIN") {
+    return res.status(403).json({ message: "Admin only" });
   }
-
-  if (req.auth.user.role !== "ADMIN") {
-    return res.status(403).json({
-      message: "Forbidden - admin role required",
-      code: "FORBIDDEN",
-    });
-  }
-
   next();
 }
 

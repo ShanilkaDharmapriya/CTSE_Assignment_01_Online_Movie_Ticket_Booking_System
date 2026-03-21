@@ -24,34 +24,55 @@ async function getShowById(showId) {
   return response.data;
 }
 
+  // Ask show-service to reserve seats (before payment)
+
+async function reserveShowSeats(showId, seats) {
+  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
+  const response = await axios.post(`${showServiceBaseUrl}/shows/${showId}/reserve-seats`, {
+    seats,
+  });
+  return response.data;
+}
+
+  // Ask show-service to release seats (cancel / payment failure)
+
+async function freeShowSeats(showId, seatsToFree) {
+  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
+  const response = await axios.post(`${showServiceBaseUrl}/shows/${showId}/free-seats`, {
+    seats: seatsToFree,
+  });
+  return response.data;
+}
+
   // Ask payment-service to process booking payment before booking confirmation
 
-async function createPayment(payload) {
+async function createPayment(payload, authHeader) {
   const paymentServiceBaseUrl = getRequiredEnvValue("PAYMENT_SERVICE_URL");
-  const response = await axios.post(`${paymentServiceBaseUrl}/payments`, payload);
+  const headers = {};
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+  const response = await axios.post(`${paymentServiceBaseUrl}/payments`, payload, { headers });
   return response.data;
 }
 
   // Ask payment-service to refund a payment when booking is cancelled
 
-async function refundPayment(paymentId) {
+async function refundPayment(paymentId, authHeader) {
   const paymentServiceBaseUrl = getRequiredEnvValue("PAYMENT_SERVICE_URL");
-  const response = await axios.post(`${paymentServiceBaseUrl}/payments/${paymentId}/refund`, {});
-  return response.data;
-}
-
-  // Ask show-service to free up seats when booking is cancelled
-
-async function updateShowSeats(showId, seatsToFree) {
-  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
-  const response = await axios.post(`${showServiceBaseUrl}/shows/${showId}/free-seats`, { seats: seatsToFree });
+  const headers = {};
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+  const response = await axios.post(`${paymentServiceBaseUrl}/payments/${paymentId}/refund`, {}, { headers });
   return response.data;
 }
 
 module.exports = {
   getMovieById,
   getShowById,
+  reserveShowSeats,
+  freeShowSeats,
   createPayment,
   refundPayment,
-  updateShowSeats
 };

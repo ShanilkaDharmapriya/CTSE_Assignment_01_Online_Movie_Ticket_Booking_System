@@ -2,10 +2,14 @@ const axios = require("axios");
 
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || "http://localhost:4004";
 
+const authHeaders = (req) => ({
+  headers: { Authorization: req.headers.authorization },
+});
+
 // POST /payments
 const processPayment = async (req, res) => {
   try {
-    const response = await axios.post(`${PAYMENT_SERVICE_URL}/payments`, req.body);
+    const response = await axios.post(`${PAYMENT_SERVICE_URL}/payments`, req.body, authHeaders(req));
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Payment processing failed", error: error.message });
@@ -15,7 +19,10 @@ const processPayment = async (req, res) => {
 // GET /payments
 const getAllPayments = async (req, res) => {
   try {
-    const response = await axios.get(`${PAYMENT_SERVICE_URL}/payments`, { params: req.query });
+    const response = await axios.get(`${PAYMENT_SERVICE_URL}/payments`, {
+      params: req.query,
+      ...authHeaders(req),
+    });
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch payments", error: error.message });
@@ -25,7 +32,7 @@ const getAllPayments = async (req, res) => {
 // GET /payments/:id  — get payment status
 const getPaymentStatus = async (req, res) => {
   try {
-    const response = await axios.get(`${PAYMENT_SERVICE_URL}/payments/${req.params.id}`);
+    const response = await axios.get(`${PAYMENT_SERVICE_URL}/payments/${req.params.id}`, authHeaders(req));
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch payment status", error: error.message });
@@ -35,7 +42,11 @@ const getPaymentStatus = async (req, res) => {
 // POST /payments/:id/refund — refund a payment
 const refundPayment = async (req, res) => {
   try {
-    const response = await axios.post(`${PAYMENT_SERVICE_URL}/payments/${req.params.id}/refund`, req.body);
+    const response = await axios.post(
+      `${PAYMENT_SERVICE_URL}/payments/${req.params.id}/refund`,
+      req.body,
+      authHeaders(req)
+    );
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Payment refund failed", error: error.message });

@@ -5,6 +5,8 @@ const {
   getAllShows,
   getShowById,
   getSeatInfo,
+  reserveSeats,
+  freeSeats,
   createShow,
   updateShow,
   deleteShow,
@@ -13,11 +15,15 @@ const {
 // GET  /shows              — get all shows (public)
 router.get("/", getAllShows);
 
-// GET  /shows/:showId      — get a specific show by ID (public)
-router.get("/:showId", getShowById);
-
 // GET  /shows/:showId/seats    — get seat info (public)
 router.get("/:showId/seats", getSeatInfo);
+
+// POST /shows/:showId/reserve-seats | free-seats — booking flow (register before /:showId)
+router.post("/:showId/reserve-seats", reserveSeats);
+router.post("/:showId/free-seats", freeSeats);
+
+// GET  /shows/:showId      — get a specific show by ID (public)
+router.get("/:showId", getShowById);
 
 // POST /shows              — create a new show (admin only)
 router.post("/", requireAdmin, createShow);
