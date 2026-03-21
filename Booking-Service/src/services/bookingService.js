@@ -101,8 +101,32 @@ async function getBookingById(bookingId) {
   return Booking.findById(bookingId);
 }
 
+async function cancelBooking(bookingId) {
+  // Validate booking exists
+  const booking = await Booking.findById(bookingId);
+  if (!booking) {
+    const error = new Error("Booking not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Check if booking is already cancelled
+  if (booking.status === "CANCELLED") {
+    const error = new Error("Booking is already cancelled");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Update booking status to CANCELLED
+  booking.status = "CANCELLED";
+  const updatedBooking = await booking.save();
+
+  return updatedBooking;
+}
+
 module.exports = {
   createBooking,
   getBookings,
-  getBookingById
+  getBookingById,
+  cancelBooking
 };

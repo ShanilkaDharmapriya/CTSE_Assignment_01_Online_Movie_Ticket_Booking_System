@@ -52,4 +52,14 @@ const getSeatInfo = async (req, res) => {
   }
 };
 
-module.exports = { getAllShows, getShowById, createShow, updateShow, getSeatInfo };
+// DELETE /shows/:id
+const deleteShow = async (req, res) => {
+  try {
+    const response = await axios.delete(`${SHOW_SERVICE_URL}/shows/${req.params.id}`);
+    res.status(200).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ message: "Failed to delete show", error: error.message });
+  }
+};
+
+module.exports = { getAllShows, getShowById, createShow, updateShow, getSeatInfo, deleteShow };

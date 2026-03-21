@@ -1,7 +1,8 @@
 const {
   createBooking,
   getBookings,
-  getBookingById
+  getBookingById,
+  cancelBooking
 } = require("../services/bookingService");
 
 async function createBookingHandler(req, res, next) {
@@ -38,8 +39,20 @@ async function getBookingByIdHandler(req, res, next) {
   }
 }
 
+async function cancelBookingHandler(req, res, next) {
+  try {
+    // Cancel a booking using the service layer.
+    const cancelledBooking = await cancelBooking(req.params.bookingId);
+    return res.status(200).json(cancelledBooking);
+  } catch (error) {
+    // Pass errors to centralized error handler middleware.
+    return next(error);
+  }
+}
+
 module.exports = {
   createBookingHandler,
   getAllBookingsHandler,
-  getBookingByIdHandler
+  getBookingByIdHandler,
+  cancelBookingHandler
 };

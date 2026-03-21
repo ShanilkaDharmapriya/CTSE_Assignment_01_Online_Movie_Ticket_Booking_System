@@ -32,4 +32,14 @@ const getPaymentStatus = async (req, res) => {
   }
 };
 
-module.exports = { processPayment, getAllPayments, getPaymentStatus };
+// POST /payments/:id/refund — refund a payment
+const refundPayment = async (req, res) => {
+  try {
+    const response = await axios.post(`${PAYMENT_SERVICE_URL}/payments/${req.params.id}/refund`, req.body);
+    res.status(200).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ message: "Payment refund failed", error: error.message });
+  }
+};
+
+module.exports = { processPayment, getAllPayments, getPaymentStatus, refundPayment };

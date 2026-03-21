@@ -4,12 +4,14 @@ const cors = require("cors");
 const connectDB = require("../config/db");
 const { PORT } = require("../config/config");
 const movieRoutes = require("../routes/movieRoutes");
+const { authenticateJWT } = require("../middleware/authMiddleware");
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(authenticateJWT);
 
 // Routes
 app.use("/movies", movieRoutes);

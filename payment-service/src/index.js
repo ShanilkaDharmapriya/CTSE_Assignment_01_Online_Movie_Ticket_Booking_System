@@ -5,10 +5,12 @@ const connectDB = require("../config/db");
 const { PORT } = require("../config/config");
 const paymentRoutes = require("../routes/paymentRoutes");
 const { processPayment } = require("../controllers/paymentController");
+const { authenticateJWT } = require("../middleware/authMiddleware");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(authenticateJWT);
 
 app.use("/payments", paymentRoutes);
 app.post("/pay", processPayment);

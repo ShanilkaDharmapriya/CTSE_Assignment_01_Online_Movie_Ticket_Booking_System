@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { requireAuth } = require("../middleware/authMiddleware");
 const {
   createBooking,
   getAllBookings,
@@ -7,16 +8,16 @@ const {
   cancelBooking,
 } = require("../controllers/bookingController");
 
-// POST   /bookings         — create a booking
-router.post("/", createBooking);
+// POST   /bookings         — create a booking (auth required)
+router.post("/", requireAuth, createBooking);
 
-// GET    /bookings         — list all bookings (supports ?userId=)
-router.get("/", getAllBookings);
+// GET    /bookings         — list all bookings (auth required)
+router.get("/", requireAuth, getAllBookings);
 
-// GET    /bookings/:id     — single booking
-router.get("/:id", getBookingById);
+// GET    /bookings/:id     — single booking (auth required)
+router.get("/:id", requireAuth, getBookingById);
 
-// DELETE /bookings/:id     — cancel a booking
-router.delete("/:id", cancelBooking);
+// DELETE /bookings/:id     — cancel a booking (auth required)
+router.delete("/:id", requireAuth, cancelBooking);
 
 module.exports = router;

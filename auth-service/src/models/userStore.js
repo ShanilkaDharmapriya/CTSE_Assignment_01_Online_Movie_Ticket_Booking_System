@@ -16,13 +16,14 @@ function findById(userId) {
   return usersById.get(userId) ?? null;
 }
 
-function createUser({ name, email, passwordHash }) {
+function createUser({ name, email, passwordHash, role = 'USER' }) {
   const id = randomUUID();
   const user = {
     id,
     name: String(name).trim(),
     email: normalizeEmail(email),
     passwordHash,
+    role: String(role).toUpperCase(),
     createdAt: new Date().toISOString(),
   };
   usersByEmail.set(user.email, user);
@@ -36,6 +37,7 @@ function toPublicUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role,
   };
 }
 
