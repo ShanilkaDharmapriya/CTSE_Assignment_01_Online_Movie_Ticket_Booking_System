@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { requireAuth } = require("../middleware/authMiddleware");
+const { requireAuth, requireAdmin } = require("../middleware/authMiddleware");
 const {
   getAllShows,
   getShowById,
   createShow,
   updateShow,
+  deleteShow,
   getSeatInfo,
 } = require("../controllers/showController");
 
@@ -16,10 +17,13 @@ router.get("/", getAllShows);
 router.get("/:showId", getShowById);
 
 // POST /shows                  — create show
-router.post("/", requireAuth, createShow);
+router.post("/", requireAuth, requireAdmin, createShow);
 
 // PUT  /shows/:showId          — update show
-router.put("/:showId", requireAuth, updateShow);
+router.put("/:showId", requireAuth, requireAdmin, updateShow);
+
+// DELETE /shows/:showId         — delete show
+router.delete("/:showId", requireAuth, requireAdmin, deleteShow);
 
 // GET  /shows/:showId/seats    — get seat info
 router.get("/:showId/seats", getSeatInfo);

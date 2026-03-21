@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { requireAuth } = require("../middleware/authMiddleware");
+const { requireAuth, requireAdmin } = require("../middleware/authMiddleware");
 const {
   getAllMovies,
   getMovieById,
@@ -16,12 +16,12 @@ router.get("/", getAllMovies);
 router.get("/:id", getMovieById);
 
 // POST /movies                — create movie
-router.post("/", requireAuth, createMovie);
+router.post("/", requireAuth, requireAdmin, createMovie);
 
 // PUT  /movies/:id            — update movie
-router.put("/:id", requireAuth, updateMovie);
+router.put("/:id", requireAuth, requireAdmin, updateMovie);
 
 // DELETE /movies/:id          — delete movie
-router.delete("/:id", requireAuth, deleteMovie);
+router.delete("/:id", requireAuth, requireAdmin, deleteMovie);
 
 module.exports = router;

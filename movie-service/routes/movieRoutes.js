@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const { requireAdmin } = require("../middleware/authMiddleware");
 const {
   getAllMovies,
   getMovieById,
@@ -26,12 +27,12 @@ router.get("/:id", getMovieById);
 router.get("/:id/poster", getMoviePoster);
 
 // POST /movies                — create a movie
-router.post("/", upload.single("poster"), createMovie);
+router.post("/", requireAdmin, upload.single("poster"), createMovie);
 
 // PUT  /movies/:id            — update a movie
-router.put("/:id", upload.single("poster"), updateMovie);
+router.put("/:id", requireAdmin, upload.single("poster"), updateMovie);
 
 // DELETE /movies/:id          — delete a movie (cancels active shows)
-router.delete("/:id", deleteMovie);
+router.delete("/:id", requireAdmin, deleteMovie);
 
 module.exports = router;

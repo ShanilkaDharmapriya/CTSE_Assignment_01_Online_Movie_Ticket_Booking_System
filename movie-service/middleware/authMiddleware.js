@@ -1,11 +1,9 @@
 const axios = require("axios");
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:4005";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 
-// Validate incoming Bearer token via auth-service before forwarding protected requests.
-const requireAuth = async (req, res, next) => {
+const requireAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization || req.headers.Authorization;
-
   if (!authHeader) {
     return res.status(401).json({ message: "Unauthorized: missing Authorization header" });
   }
@@ -15,6 +13,11 @@ const requireAuth = async (req, res, next) => {
       headers: { Authorization: authHeader },
       timeout: 5000,
     });
+
+    const role = response.data?.data?.user?.role;
+    if (role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: admin role required" });
+    }
 
     req.auth = response.data?.data || null;
     return next();
@@ -29,12 +32,6 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-const requireAdmin = (req, res, next) => {
-  const role = req.auth?.user?.role;
-  if (role !== "admin") {
-    return res.status(403).json({ message: "Forbidden: admin role required" });
-  }
-  return next();
+module.exports = {
+  requireAdmin,
 };
-
-module.exports = { requireAuth, requireAdmin };

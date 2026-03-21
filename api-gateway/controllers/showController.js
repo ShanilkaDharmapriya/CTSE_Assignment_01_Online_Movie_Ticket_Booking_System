@@ -15,7 +15,7 @@ const getAllShows = async (req, res) => {
 // GET /shows/:id
 const getShowById = async (req, res) => {
   try {
-    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${req.params.id}`);
+    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${req.params.showId}`);
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch show", error: error.message });
@@ -35,10 +35,20 @@ const createShow = async (req, res) => {
 // PUT /shows/:id
 const updateShow = async (req, res) => {
   try {
-    const response = await axios.put(`${SHOW_SERVICE_URL}/shows/${req.params.id}`, req.body);
+    const response = await axios.put(`${SHOW_SERVICE_URL}/shows/${req.params.showId}`, req.body);
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to update show", error: error.message });
+  }
+};
+
+// DELETE /shows/:showId
+const deleteShow = async (req, res) => {
+  try {
+    const response = await axios.delete(`${SHOW_SERVICE_URL}/shows/${req.params.showId}`);
+    res.status(200).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ message: "Failed to delete show", error: error.message });
   }
 };
 
@@ -52,4 +62,4 @@ const getSeatInfo = async (req, res) => {
   }
 };
 
-module.exports = { getAllShows, getShowById, createShow, updateShow, getSeatInfo };
+module.exports = { getAllShows, getShowById, createShow, updateShow, deleteShow, getSeatInfo };

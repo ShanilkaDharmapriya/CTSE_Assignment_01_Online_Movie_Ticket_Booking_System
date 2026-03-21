@@ -1,8 +1,10 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
 const connectDB = require("../config/db");
 const { PORT } = require("../config/config");
+const swaggerSpec = require("../config/swagger");
 const showRoutes = require("../routes/showRoutes");
 
 const app = express();
@@ -13,6 +15,7 @@ app.use(express.json());
 
 // Routes
 app.use("/shows", showRoutes);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Health check
 app.get("/health", (req, res) => {
