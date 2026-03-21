@@ -1,63 +1,88 @@
 const { v4: uuidv4 } = require("uuid");
-const { addBooking, getAllBookings, getBookingById } = require("../models/bookingStore");
-const { getMovieById, getShowById, createPayment } = require("./externalServices");
+const {
+  addBooking,
+  getAllBookings,
+  getBookingById
+} = require("../models/bookingStore");
+const {
+  getMovieById,
+  getShowById,
+  createPayment
+} = require("./externalServices");
 
-function toNumber(value) {
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
+function convertToNumber(value) {
+  const parsedNumber = Number(value);
+  return Number.isNaN(parsedNumber) ? null : parsedNumber;
 }
 
-function validateCreateBookingInput(payload) {
+function validateNewBookingInput(payload) {
   const { userId, movieId, showId, seats } = payload || {};
-  const seatCount = toNumber(seats);
+  const requestedSeatCount = convertToNumber(seats);
 
-  if (!userId || !movieId || !showId || !Number.isInteger(seatCount) || seatCount <= 0) {
-    const error = new Error("Invalid input: userId, movieId, showId and positive integer seats are required");
-    error.statusCode = 400;
-    throw error;
+  // Basic input check to stop invalid requests early.
+  if (
+    !userId ||
+    !movieId ||
+    !showId ||
+    !Number.isInteger(requestedSeatCount) ||
+    requestedSeatCount <= 0
+  ) {
+    const validationError = new Error(
+      "Invalid input: userId, movieId, showId and positive integer seats are required"
+    );
+    validationError.statusCode = 400;
+    throw validationError;
   }
 
-  return { userId, movieId, showId, seats: seatCount };
+  return { userId, movieId, showId, seats: requestedSeatCount };
 }
 
 async function createBooking(payload) {
-  const { userId, movieId, showId, seats } = validateCreateBookingInput(payload);
+  const { userId, movieId, showId, seats } = validateNewBookingInput(payload);
 
+  // Check movie exists before making a booking.
   try {
     await getMovieById(movieId);
   } catch (error) {
-    const err = new Error("Movie not found");
-    err.statusCode = 400;
-    throw err;
+    const movieError = new Error("Movie not found");
+    movieError.statusCode = 400;
+    throw movieError;
   }
 
-  let show;
+  // Check show exists and use it for seat and amount details.
+  let showDetails;
   try {
-    show = await getShowById(showId);
+    showDetails = await getShowById(showId);
   } catch (error) {
-    const err = new Error("Show not found");
-    err.statusCode = 400;
-    throw err;
+    const showError = new Error("Show not found");
+    showError.statusCode = 400;
+    throw showError;
   }
 
-  if (toNumber(show.availableSeats) < seats) {
-    const err = new Error("Not enough seats available");
-    err.statusCode = 400;
-    throw err;
+  // Make sure requested seats are available.
+  if (convertToNumber(showDetails.availableSeats) < seats) {
+    const seatError = new Error("Not enough seats available");
+    seatError.statusCode = 400;
+    throw seatError;
   }
 
+  // Create booking id and calculate payment amount.
   const bookingId = uuidv4();
-  const amount = toNumber(show.price) ? toNumber(show.price) * seats : seats;
+  const paymentAmount = convertToNumber(showDetails.price)
+    ? convertToNumber(showDetails.price) * seats
+    : seats;
 
+  // Process payment before saving booking.
   try {
-    await createPayment({ bookingId, amount });
+    await createPayment({ bookingId, amount: paymentAmount });
   } catch (error) {
-    const err = new Error("Payment failed");
-    err.statusCode = 500;
-    throw err;
+    const paymentError = new Error("Payment failed");
+    paymentError.statusCode = 500;
+    throw paymentError;
   }
 
-  const booking = addBooking({
+  // Save final booking record.
+  const createdBooking = addBooking({
     bookingId,
     userId,
     movieId,
@@ -66,7 +91,7 @@ async function createBooking(payload) {
     status: "CONFIRMED"
   });
 
-  return booking;
+  return createdBooking;
 }
 
 function getBookings() {

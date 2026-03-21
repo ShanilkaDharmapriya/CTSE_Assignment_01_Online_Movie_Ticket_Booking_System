@@ -1,28 +1,34 @@
 const axios = require("axios");
 
-function requireEnv(name) {
-  const value = process.env[name];
-  if (!value) {
+function getRequiredEnvValue(name) {
+  const envValue = process.env[name];
+  if (!envValue) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
-  return value;
+  return envValue;
 }
+
+  // Ask movie-service for movie details to confirm movie is valid
 
 async function getMovieById(movieId) {
-  const baseUrl = requireEnv("MOVIE_SERVICE_URL");
-  const response = await axios.get(`${baseUrl}/movies/${movieId}`);
+  const movieServiceBaseUrl = getRequiredEnvValue("MOVIE_SERVICE_URL");
+  const response = await axios.get(`${movieServiceBaseUrl}/movies/${movieId}`);
   return response.data;
 }
+
+ // Ask show-service for show details such as available seats and price
 
 async function getShowById(showId) {
-  const baseUrl = requireEnv("SHOW_SERVICE_URL");
-  const response = await axios.get(`${baseUrl}/shows/${showId}`);
+  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
+  const response = await axios.get(`${showServiceBaseUrl}/shows/${showId}`);
   return response.data;
 }
 
+  // Ask payment-service to process booking payment before booking confirmation
+
 async function createPayment(payload) {
-  const baseUrl = requireEnv("PAYMENT_SERVICE_URL");
-  const response = await axios.post(`${baseUrl}/payments`, payload);
+  const paymentServiceBaseUrl = getRequiredEnvValue("PAYMENT_SERVICE_URL");
+  const response = await axios.post(`${paymentServiceBaseUrl}/payments`, payload);
   return response.data;
 }
 
