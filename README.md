@@ -52,6 +52,21 @@ Each service has its own database to ensure loose coupling.
 
 ---
 
+## Controllers
+File	                            Responsibility
+controllers/movieController.js	    Proxies to movie-service + getMovieDetails aggregator
+controllers/showController.js	    Proxies to show-service (full CRUD + seat update)
+controllers/bookingController.js	Proxies to booking-service (create, list, get cancel)
+controllers/paymentController.js	Proxies to payment-service (process + status)
+
+## Routes
+File	                Mounted at
+routes/movieRoutes.js	/movies — includes GET /:id/details aggregator
+routes/showRoutes.js	/shows — includes PUT /:id/seats
+routes/bookingRoutes.js	/bookings
+routes/paymentRoutes.js	/payments
+
+
 ## 🐳 Running the Project
 
 ### 1. Clone the repository
