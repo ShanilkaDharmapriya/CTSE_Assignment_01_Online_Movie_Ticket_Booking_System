@@ -40,10 +40,19 @@ const movieSchema = new mongoose.Schema(
       type: Date,
       required: [true, "Release date is required"],
     },
-    posterUrl: {
-      type: String,
-      trim: true,
-      default: "",
+    poster: {
+      data: {
+        type: Buffer,
+        default: null,
+      },
+      contentType: {
+        type: String,
+        default: "",
+      },
+      fileName: {
+        type: String,
+        default: "",
+      },
     },
     rating: {
       // e.g. 8.5 out of 10
