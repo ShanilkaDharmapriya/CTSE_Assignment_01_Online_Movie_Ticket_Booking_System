@@ -42,24 +42,14 @@ const updateShow = async (req, res) => {
   }
 };
 
-// DELETE /shows/:id
-const deleteShow = async (req, res) => {
+// GET /shows/:showId/seats
+const getSeatInfo = async (req, res) => {
   try {
-    const response = await axios.delete(`${SHOW_SERVICE_URL}/shows/${req.params.id}`);
+    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${req.params.showId}/seats`);
     res.status(200).json(response.data);
   } catch (error) {
-    res.status(error.response?.status || 500).json({ message: "Failed to delete show", error: error.message });
+    res.status(error.response?.status || 500).json({ message: "Failed to fetch seat info", error: error.message });
   }
 };
 
-// PUT /shows/:id/seats
-const updateSeatAvailability = async (req, res) => {
-  try {
-    const response = await axios.put(`${SHOW_SERVICE_URL}/shows/${req.params.id}/seats`, req.body);
-    res.status(200).json(response.data);
-  } catch (error) {
-    res.status(error.response?.status || 500).json({ message: "Failed to update seat availability", error: error.message });
-  }
-};
-
-module.exports = { getAllShows, getShowById, createShow, updateShow, deleteShow, updateSeatAvailability };
+module.exports = { getAllShows, getShowById, createShow, updateShow, getSeatInfo };

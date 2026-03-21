@@ -53,21 +53,4 @@ const deleteMovie = async (req, res) => {
   }
 };
 
-// GET /movies/:id/details  — aggregator: movie info + its shows
-const getMovieDetails = async (req, res) => {
-  try {
-    const movieId = req.params.id;
-    const [movieResponse, showsResponse] = await Promise.all([
-      axios.get(`${MOVIE_SERVICE_URL}/movies/${movieId}`),
-      axios.get(`${SHOW_SERVICE_URL}/shows?movieId=${movieId}`),
-    ]);
-    res.status(200).json({
-      movie: movieResponse.data,
-      shows: showsResponse.data,
-    });
-  } catch (error) {
-    res.status(error.response?.status || 500).json({ message: "Failed to fetch movie details", error: error.message });
-  }
-};
-
-module.exports = { getAllMovies, getMovieById, createMovie, updateMovie, deleteMovie, getMovieDetails };
+module.exports = { getAllMovies, getMovieById, createMovie, updateMovie, deleteMovie };

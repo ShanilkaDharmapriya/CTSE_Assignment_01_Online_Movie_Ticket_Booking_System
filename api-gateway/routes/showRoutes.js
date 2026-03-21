@@ -5,26 +5,22 @@ const {
   getShowById,
   createShow,
   updateShow,
-  deleteShow,
-  updateSeatAvailability,
+  getSeatInfo,
 } = require("../controllers/showController");
 
-// GET  /shows              — list all shows (supports ?movieId=&date=&status=)
+// GET  /shows                  — list all shows (supports ?movieId=)
 router.get("/", getAllShows);
 
-// GET  /shows/:id          — single show
-router.get("/:id", getShowById);
+// GET  /shows/:showId          — single show
+router.get("/:showId", getShowById);
 
-// POST /shows              — create show
+// POST /shows                  — create show
 router.post("/", createShow);
 
-// PUT  /shows/:id          — update show
-router.put("/:id", updateShow);
+// PUT  /shows/:showId          — update show
+router.put("/:showId", updateShow);
 
-// DELETE /shows/:id        — delete show
-router.delete("/:id", deleteShow);
-
-// PUT  /shows/:id/seats    — update seat availability
-router.put("/:id/seats", updateSeatAvailability);
+// GET  /shows/:showId/seats    — get seat info
+router.get("/:showId/seats", getSeatInfo);
 
 module.exports = router;
