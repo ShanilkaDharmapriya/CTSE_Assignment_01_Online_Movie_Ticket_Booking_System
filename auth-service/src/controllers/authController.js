@@ -1,19 +1,29 @@
 const authService = require('../services/authService');
 
-async function register(req, res, next) {
+async function registerCustomer(req, res, next) {
   try {
     const { name, email, password } = req.body;
-    const user = await authService.register({ name, email, password });
+    const user = await authService.registerCustomer({ name, email, password });
     res.status(201).json({ success: true, data: { user } });
   } catch (err) {
     next(err);
   }
 }
 
-async function login(req, res, next) {
+async function loginCustomer(req, res, next) {
   try {
     const { email, password } = req.body;
-    const result = await authService.login({ email, password });
+    const result = await authService.loginCustomer({ email, password });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function loginAdmin(req, res, next) {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.loginAdmin({ email, password });
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -30,8 +40,9 @@ function health(_req, res) {
 }
 
 module.exports = {
-  register,
-  login,
+  registerCustomer,
+  loginCustomer,
+  loginAdmin,
   validateAuthenticated,
   health,
 };

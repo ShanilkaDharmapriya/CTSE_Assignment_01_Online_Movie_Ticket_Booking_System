@@ -1,33 +1,81 @@
-const { randomUUID } = require('crypto');
+const mongoose = require('mongoose');
 
-/** In-memory user store (swap for MongoDB later without changing service API). */
-const usersByEmail = new Map();
-const usersById = new Map();
+const USER_ROLES = {
+  CUSTOMER: 'customer',
+  ADMIN: 'admin',
+};
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    passwordHash: {
+      type: String,
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: Object.values(USER_ROLES),
+      default: USER_ROLES.CUSTOMER,
+      required: true,
+    },
+  },
+  {
+    timestamps: { createdAt: true, updatedAt: false },
+    versionKey: false,
+  }
+);
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 function normalizeEmail(email) {
   return String(email).trim().toLowerCase();
 }
 
-function findByEmail(email) {
-  return usersByEmail.get(normalizeEmail(email)) ?? null;
+function mapDoc(userDoc) {
+  if (!userDoc) return null;
+  return {
+    id: String(userDoc._id),
+    name: userDoc.name,
+    email: userDoc.email,
+    passwordHash: userDoc.passwordHash,
+    role: userDoc.role,
+    createdAt: userDoc.createdAt,
+  };
 }
 
-function findById(userId) {
-  return usersById.get(userId) ?? null;
+async function findByEmail(email) {
+  const userDoc = await User.findOne({ email: normalizeEmail(email) }).exec();
+  return mapDoc(userDoc);
 }
 
-function createUser({ name, email, passwordHash }) {
-  const id = randomUUID();
-  const user = {
-    id,
+async function findById(userId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return null;
+  }
+  const userDoc = await User.findById(userId).exec();
+  return mapDoc(userDoc);
+}
+
+async function createUser({ name, email, passwordHash, role = USER_ROLES.CUSTOMER }) {
+  const userDoc = await User.create({
     name: String(name).trim(),
     email: normalizeEmail(email),
     passwordHash,
-    createdAt: new Date().toISOString(),
-  };
-  usersByEmail.set(user.email, user);
-  usersById.set(user.id, user);
-  return user;
+    role,
+  });
+  return mapDoc(userDoc);
 }
 
 function toPublicUser(user) {
@@ -36,10 +84,12 @@ function toPublicUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role,
   };
 }
 
 module.exports = {
+  USER_ROLES,
   findByEmail,
   findById,
   createUser,

@@ -1,6 +1,6 @@
 const { body, validationResult } = require('express-validator');
 
-const registerRules = [
+const customerRegisterRules = [
   body('name')
     .trim()
     .notEmpty()
@@ -48,7 +48,7 @@ function handleValidationErrors(req, res, next) {
 }
 
 module.exports = {
-  registerRules,
+  customerRegisterRules,
   loginRules,
   handleValidationErrors,
 };

@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
+const { connectToDatabase } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
@@ -40,9 +41,16 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`auth-service listening on port ${PORT}`);
-  });
+  connectToDatabase()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`auth-service listening on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error('Failed to connect to MongoDB:', error.message);
+      process.exit(1);
+    });
 }
 
 module.exports = app;

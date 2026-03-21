@@ -2,7 +2,7 @@ const { Router } = require('express');
 const authController = require('../controllers/authController');
 const { requireValidJwt } = require('../middleware/authMiddleware');
 const {
-  registerRules,
+  customerRegisterRules,
   loginRules,
   handleValidationErrors,
 } = require('../validators/authValidators');
@@ -11,9 +11,9 @@ const router = Router();
 
 /**
  * @openapi
- * /auth/register:
+ * /auth/register/customer:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new customer
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -35,17 +35,17 @@ const router = Router();
  *         description: Email already registered
  */
 router.post(
-  '/register',
-  registerRules,
+  '/register/customer',
+  customerRegisterRules,
   handleValidationErrors,
-  authController.register
+  authController.registerCustomer
 );
 
 /**
  * @openapi
- * /auth/login:
+ * /auth/login/customer:
  *   post:
- *     summary: Login and receive JWT
+ *     summary: Customer login and receive JWT
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -63,7 +63,31 @@ router.post(
  *       401:
  *         description: Invalid credentials
  */
-router.post('/login', loginRules, handleValidationErrors, authController.login);
+router.post('/login/customer', loginRules, handleValidationErrors, authController.loginCustomer);
+
+/**
+ * @openapi
+ * /auth/login/admin:
+ *   post:
+ *     summary: Admin login and receive JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: JWT issued for admin
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/login/admin', loginRules, handleValidationErrors, authController.loginAdmin);
 
 /**
  * @openapi

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { requireAuth } = require("../middleware/authMiddleware");
 const {
   getAllShows,
   getShowById,
@@ -15,10 +16,10 @@ router.get("/", getAllShows);
 router.get("/:showId", getShowById);
 
 // POST /shows                  — create show
-router.post("/", createShow);
+router.post("/", requireAuth, createShow);
 
 // PUT  /shows/:showId          — update show
-router.put("/:showId", updateShow);
+router.put("/:showId", requireAuth, updateShow);
 
 // GET  /shows/:showId/seats    — get seat info
 router.get("/:showId/seats", getSeatInfo);
