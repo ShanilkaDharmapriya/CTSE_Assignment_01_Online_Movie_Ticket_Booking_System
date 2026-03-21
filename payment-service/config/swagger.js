@@ -9,6 +9,16 @@ const swaggerSpec = swaggerJsdoc({
       description: "Payment processing APIs",
     },
     servers: [{ url: "/", description: "Current host" }],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [{ bearerAuth: [] }],
     paths: {
       "/health": { get: { summary: "Health check" } },
       "/payments": {
