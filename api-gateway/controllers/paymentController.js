@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || "http://payment-service:4004";
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || "http://localhost:4004";
 
 // POST /payments
 const processPayment = async (req, res) => {

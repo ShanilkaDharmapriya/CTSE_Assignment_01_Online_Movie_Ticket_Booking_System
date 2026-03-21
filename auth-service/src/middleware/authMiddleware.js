@@ -12,10 +12,10 @@ function extractBearerToken(req) {
  * Validates JWT from Authorization: Bearer <token>.
  * Sets req.auth = { user } on success; calls next(err) on failure.
  */
-function requireValidJwt(req, res, next) {
+async function requireValidJwt(req, res, next) {
   const token = extractBearerToken(req);
   try {
-    const { user } = authService.validateToken(token);
+    const { user } = await authService.validateToken(token);
     req.auth = { user };
     next();
   } catch (err) {

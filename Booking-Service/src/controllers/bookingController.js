@@ -18,8 +18,12 @@ async function createBookingHandler(req, res, next) {
 
 async function getAllBookingsHandler(req, res, next) {
   try {
-    // Return every booking currently saved in MongoDB.
-    const bookings = await getBookings();
+    // Return bookings for the authenticated user only (privacy-protected)
+    const userId = req.auth?.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "User ID not found in token" });
+    }
+    const bookings = await getBookings(userId);
     return res.status(200).json(bookings);
   } catch (error) {
     return next(error);
@@ -28,11 +32,12 @@ async function getAllBookingsHandler(req, res, next) {
 
 async function getBookingByIdHandler(req, res, next) {
   try {
-    // Find one booking from MongoDB using the id from URL path.
-    const bookingRecord = await getBookingById(req.params.bookingId);
-    if (!bookingRecord) {
-      return res.status(404).json({ message: "Booking not found" });
+    // Find one booking from MongoDB with user ownership verification
+    const userId = req.auth?.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "User ID not found in token" });
     }
+    const bookingRecord = await getBookingById(req.params.bookingId, userId);
     return res.status(200).json(bookingRecord);
   } catch (error) {
     return next(error);
@@ -41,8 +46,13 @@ async function getBookingByIdHandler(req, res, next) {
 
 async function cancelBookingHandler(req, res, next) {
   try {
-    // Cancel a booking using the service layer.
-    const cancelledBooking = await cancelBooking(req.params.bookingId);
+    // Cancel a booking with user verification and refund processing
+    const userId = req.auth?.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "User ID not found in token" });
+    }
+    const cancellationReason = req.body?.reason || "User requested";
+    const cancelledBooking = await cancelBooking(req.params.bookingId, userId, cancellationReason);
     return res.status(200).json(cancelledBooking);
   } catch (error) {
     // Pass errors to centralized error handler middleware.

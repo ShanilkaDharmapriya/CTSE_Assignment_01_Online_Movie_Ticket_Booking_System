@@ -32,8 +32,26 @@ async function createPayment(payload) {
   return response.data;
 }
 
+  // Ask payment-service to refund a payment when booking is cancelled
+
+async function refundPayment(paymentId) {
+  const paymentServiceBaseUrl = getRequiredEnvValue("PAYMENT_SERVICE_URL");
+  const response = await axios.post(`${paymentServiceBaseUrl}/payments/${paymentId}/refund`, {});
+  return response.data;
+}
+
+  // Ask show-service to free up seats when booking is cancelled
+
+async function updateShowSeats(showId, seatsToFree) {
+  const showServiceBaseUrl = getRequiredEnvValue("SHOW_SERVICE_URL");
+  const response = await axios.post(`${showServiceBaseUrl}/shows/${showId}/free-seats`, { seats: seatsToFree });
+  return response.data;
+}
+
 module.exports = {
   getMovieById,
   getShowById,
-  createPayment
+  createPayment,
+  refundPayment,
+  updateShowSeats
 };

@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const BOOKING_SERVICE_URL = process.env.BOOKING_SERVICE_URL || "http://booking-service:4003";
+const BOOKING_SERVICE_URL = process.env.BOOKING_SERVICE_URL || "http://localhost:4003";
 
 // POST /bookings
 const createBooking = async (req, res) => {

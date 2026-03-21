@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:5000";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 
 // POST /auth/register
 router.post("/register", async (req, res) => {

@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "axios": "^1.13.6"
+  },
+  "name": "ctse_assignment_01_online_movie_ticket_booking_system",
+  "version": "1.0.0",
+  "description": "This project is a microservice-based movie ticket booking system developed for the CTSE (SE4010) assignment.",
+  "main": "e2e-test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShanilkaDharmapriya/CTSE_Assignment_01_Online_Movie_Ticket_Booking_System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ShanilkaDharmapriya/CTSE_Assignment_01_Online_Movie_Ticket_Booking_System/issues"
+  },
+  "homepage": "https://github.com/ShanilkaDharmapriya/CTSE_Assignment_01_Online_Movie_Ticket_Booking_System#readme"
+}

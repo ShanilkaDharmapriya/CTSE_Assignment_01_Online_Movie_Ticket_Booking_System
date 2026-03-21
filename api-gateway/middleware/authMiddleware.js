@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:5000";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 
 /**
  * Extract Bearer token from Authorization header
@@ -32,13 +32,20 @@ async function authenticateJWT(req, res, next) {
     });
 
     if (response.data.success && response.data.data.valid) {
+      console.log('Authenticating user:', response.data.data.user.email);
       req.auth = { user: response.data.data.user };
       // Forward user context as headers for downstream services
       req.headers["x-user-id"] = response.data.data.user.id;
       req.headers["x-user-role"] = response.data.data.user.role;
       req.headers["x-user-email"] = response.data.data.user.email;
+    } else {
+      console.warn('Validation response data invalid:', JSON.stringify(response.data));
     }
   } catch (error) {
+    console.error(`Token validation failed at Gateway: ${error.message}`);
+    if (error.response) {
+      console.error('Auth Service response:', error.response.status, error.response.data);
+    }
     // Token validation failed, continue without auth context
     // (routes can decide if auth is required)
   }
@@ -63,6 +70,9 @@ function requireAuth(req, res, next) {
  * Require admin role
  */
 function requireAdmin(req, res, next) {
+  console.log('Checking Admin role. req.auth exists:', !!req.auth);
+  if (req.auth) console.log('Current user role:', req.auth.user?.role);
+  
   if (!req.auth || !req.auth.user) {
     return res.status(401).json({
       success: false,

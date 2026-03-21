@@ -1,7 +1,7 @@
 const axios = require("axios");
 
-const MOVIE_SERVICE_URL = process.env.MOVIE_SERVICE_URL || "http://movie-service:4001";
-const SHOW_SERVICE_URL  = process.env.SHOW_SERVICE_URL  || "http://show-service:4002";
+const MOVIE_SERVICE_URL = process.env.MOVIE_SERVICE_URL || "http://localhost:4001";
+const SHOW_SERVICE_URL  = process.env.SHOW_SERVICE_URL  || "http://localhost:4002";
 
 // GET /movies
 const getAllMovies = async (req, res) => {

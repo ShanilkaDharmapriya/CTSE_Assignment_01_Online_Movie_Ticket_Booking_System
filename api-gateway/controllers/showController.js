@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const SHOW_SERVICE_URL = process.env.SHOW_SERVICE_URL || "http://show-service:4002";
+const SHOW_SERVICE_URL = process.env.SHOW_SERVICE_URL || "http://localhost:4002";
 
 // GET /shows  (supports ?movieId=&date=&status=)
 const getAllShows = async (req, res) => {

@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const bookingRoutes = require("./routes/bookingRoutes");
-const { authenticateJWT } = require("./middleware/authMiddleware");
+const { authenticateJWT } = require("../middleware/authMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 4003;

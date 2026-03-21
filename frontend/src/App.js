@@ -1,29 +1,62 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import MovieList from "./pages/movie-service/MovieList";
-import MovieDetail from "./pages/movie-service/MovieDetail";
-import ShowList from "./pages/show-service/ShowList";
-import ShowDetail from "./pages/show-service/ShowDetail";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Pages
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Home from './pages/Home';
+import MovieDetail from './pages/MovieDetail';
+import Booking from './pages/Booking';
+import Checkout from './pages/Checkout';
+import BookingHistory from './pages/BookingHistory';
 
 function App() {
   return (
     <Router>
-      <Navbar />
-      <div style={{ padding: "20px" }}>
+      <AuthProvider>
+        <Navbar />
         <Routes>
-          {/* Movie Service routes */}
-          <Route path="/movies" element={<MovieList />} />
-          <Route path="/movies/:id" element={<MovieDetail />} />
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Public Routes - Anyone can browse */}
+          <Route path="/" element={<Home />} />
+          <Route path="/movie/:movieId" element={<MovieDetail />} />
 
-          {/* Show Service routes */}
-          <Route path="/shows" element={<ShowList />} />
-          <Route path="/shows/:id" element={<ShowDetail />} />
+          {/* Protected Routes - Require authentication */}
+          <Route
+            path="/booking/:movieId/:showId"
+            element={
+              <ProtectedRoute>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout/:bookingId"
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking-history"
+            element={
+              <ProtectedRoute>
+                <BookingHistory />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Default */}
-          <Route path="/" element={<MovieList />} />
+          {/* Catch all - redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
+      </AuthProvider>
     </Router>
   );
 }

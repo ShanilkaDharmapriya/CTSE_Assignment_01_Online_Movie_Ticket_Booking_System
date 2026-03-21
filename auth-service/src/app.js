@@ -9,6 +9,11 @@ const errorHandler = require('./middleware/errorHandler');
 const authController = require('./controllers/authController');
 
 const app = express();
+const connectDB = require('./config/db');
+
+// Connect to database
+connectDB();
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
