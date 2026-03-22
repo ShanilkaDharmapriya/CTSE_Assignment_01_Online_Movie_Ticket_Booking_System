@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
+const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || "";
 
 const requireAdmin = async (req, res, next) => {
   const authHeader = req.headers.authorization || req.headers.Authorization;
@@ -34,4 +35,14 @@ const requireAdmin = async (req, res, next) => {
 
 module.exports = {
   requireAdmin,
+  requireAdminOrService,
 };
+
+// Allows internal microservice calls (via X-Service-Key header) OR admin JWT.
+async function requireAdminOrService(req, res, next) {
+  const serviceKey = req.headers["x-service-key"];
+  if (INTERNAL_SERVICE_KEY && serviceKey === INTERNAL_SERVICE_KEY) {
+    return next();
+  }
+  return requireAdmin(req, res, next);
+}

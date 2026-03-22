@@ -74,7 +74,17 @@ async function createBooking(payload) {
 
   // Process payment before saving booking.
   try {
-    await createPayment({ bookingId, amount: paymentAmount });
+    await createPayment({
+      bookingId,
+      userId,
+      movieId,
+      showId,
+      seats,
+      amount: paymentAmount,
+      currency: payload.currency || "usd",
+      paymentMethod: payload.paymentMethod || "stripe",
+      paymentMethodId: payload.paymentMethodId,
+    });
   } catch (error) {
     const paymentError = new Error("Payment failed");
     paymentError.statusCode = 500;

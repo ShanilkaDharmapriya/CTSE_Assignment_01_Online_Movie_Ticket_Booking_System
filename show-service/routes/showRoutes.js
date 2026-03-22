@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { requireAdmin } = require("../middleware/authMiddleware");
+const { requireAdmin, requireAdminOrService } = require("../middleware/authMiddleware");
 const {
   getAllShows,
   getShowById,
@@ -22,8 +22,8 @@ router.get("/:showId/seats", getSeatInfo);
 // POST /shows              — create a new show
 router.post("/", requireAdmin, createShow);
 
-// PUT  /shows/:showId      — update show details
-router.put("/:showId", requireAdmin, updateShow);
+// PUT  /shows/:showId      — update show details (admin or internal service)
+router.put("/:showId", requireAdminOrService, updateShow);
 
 // DELETE /shows/:showId    — delete a show
 router.delete("/:showId", requireAdmin, deleteShow);

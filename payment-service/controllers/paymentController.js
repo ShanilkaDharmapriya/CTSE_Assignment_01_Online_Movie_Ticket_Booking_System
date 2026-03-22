@@ -38,6 +38,8 @@ const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
   await axios.put(`${SHOW_SERVICE_URL}/shows/${showId}`, {
     availableSeats,
     reservedSeats,
+  }, {
+    headers: { "X-Service-Key": process.env.INTERNAL_SERVICE_KEY || "" },
   });
 };
 

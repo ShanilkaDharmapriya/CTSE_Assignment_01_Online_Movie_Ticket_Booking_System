@@ -1,6 +1,17 @@
 const axios = require("axios");
+const mongoose = require("mongoose");
 const Movie = require("../models/Movie");
 const { SHOW_SERVICE_URL } = require("../config/config");
+
+const ensureDbConnected = (res) => {
+  if (mongoose.connection.readyState !== 1) {
+    res.status(503).json({
+      message: "Database is unavailable. Please try again after MongoDB reconnects.",
+    });
+    return false;
+  }
+  return true;
+};
 
 const parseArrayField = (value) => {
   if (Array.isArray(value)) return value;
@@ -43,6 +54,8 @@ const buildMoviePayload = (req) => {
 // GET /movies  — optionally filter by ?status=&genre=&language=
 const getAllMovies = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const filter = {};
     if (req.query.status)   filter.status   = req.query.status;
     if (req.query.language) filter.language = req.query.language;
@@ -64,6 +77,8 @@ const getAllMovies = async (req, res) => {
 // GET /movies/:id
 const getMovieById = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const movie = await Movie.findById(req.params.id);
     if (!movie) {
       return res.status(404).json({ message: "Movie not found" });
@@ -81,6 +96,8 @@ const getMovieById = async (req, res) => {
 // Aggregator: fetch this movie's details + all upcoming shows from show-service
 const getMovieWithShows = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const movie = await Movie.findById(req.params.id);
     if (!movie) {
       return res.status(404).json({ message: "Movie not found" });
@@ -106,6 +123,8 @@ const getMovieWithShows = async (req, res) => {
 // POST /movies
 const createMovie = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const movie = new Movie(buildMoviePayload(req));
     const savedMovie = await movie.save();
     const safeMovie = savedMovie.toObject();
@@ -120,6 +139,8 @@ const createMovie = async (req, res) => {
 // PUT /movies/:id
 const updateMovie = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const updatedMovie = await Movie.findByIdAndUpdate(
       req.params.id,
       { $set: buildMoviePayload(req) },
@@ -141,6 +162,8 @@ const updateMovie = async (req, res) => {
 // Also notifies show-service to cancel any active shows for this movie
 const deleteMovie = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const movie = await Movie.findByIdAndDelete(req.params.id);
     if (!movie) {
       return res.status(404).json({ message: "Movie not found" });
@@ -170,6 +193,8 @@ const deleteMovie = async (req, res) => {
 // GET /movies/:id/poster
 const getMoviePoster = async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return;
+
     const movie = await Movie.findById(req.params.id).select("poster");
     if (!movie || !movie.poster || !movie.poster.data) {
       return res.status(404).json({ message: "Poster not found" });
