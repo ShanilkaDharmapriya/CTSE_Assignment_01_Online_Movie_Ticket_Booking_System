@@ -2,6 +2,21 @@ const axios = require("axios");
 
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || "http://payment-service:4004";
 
+const buildProxyErrorPayload = (fallbackMessage, error) => {
+  const upstream = error.response?.data;
+  if (upstream && typeof upstream === "object") {
+    return {
+      ...upstream,
+      message: upstream.message || fallbackMessage,
+    };
+  }
+
+  return {
+    message: fallbackMessage,
+    error: error.message,
+  };
+};
+
 // POST /payments
 const processPayment = async (req, res) => {
   try {
@@ -10,6 +25,11 @@ const processPayment = async (req, res) => {
       userId: req.body.userId || req.auth?.user?.id,
     };
 
+    console.log("[Gateway][ProcessPayment] forwarding payload", {
+      ...paymentPayload,
+      hasUserId: Boolean(paymentPayload.userId),
+    });
+
     if (!paymentPayload.userId) {
       return res.status(401).json({ message: "Authenticated user ID is required" });
     }
@@ -17,7 +37,14 @@ const processPayment = async (req, res) => {
     const response = await axios.post(`${PAYMENT_SERVICE_URL}/payments`, paymentPayload);
     res.status(200).json(response.data);
   } catch (error) {
-    res.status(error.response?.status || 500).json({ message: "Payment processing failed", error: error.message });
+    console.error("[Gateway][ProcessPayment] failed", {
+      status: error.response?.status,
+      upstreamBody: error.response?.data,
+      message: error.message,
+    });
+    res
+      .status(error.response?.status || 500)
+      .json(buildProxyErrorPayload("Payment processing failed", error));
   }
 };
 

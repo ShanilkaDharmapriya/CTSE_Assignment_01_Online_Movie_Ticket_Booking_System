@@ -100,6 +100,12 @@ const createShow = async (req, res) => {
     const savedShow = await show.save();
     res.status(201).json(savedShow);
   } catch (error) {
+    console.error("[ShowService][CreateShow] failed", {
+      requestBody: req.body,
+      statusCode: error.statusCode,
+      message: error.message,
+      stack: error.stack,
+    });
     res.status(error.statusCode || 400).json({ message: "Failed to create show", error: error.message });
   }
 };

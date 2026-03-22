@@ -82,6 +82,12 @@ export default function Admin() {
       setPosterFile(null);
       await refreshMovies();
     } catch (err) {
+      console.error("[Admin][CreateMovie] request failed", {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseBody: err.response?.data,
+        message: err.message,
+      });
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -100,17 +106,26 @@ export default function Admin() {
     setShowLoading(true);
     try {
       const dateIso = new Date(`${showDate}T12:00:00`).toISOString();
-      await createShow({
+      const payload = {
         movieId,
         theater: theater.trim(),
         date: dateIso,
         showTime,
         availableSeats: Number(availableSeats),
-      });
+      };
+
+      console.log("[Admin][CreateShow] request payload", payload);
+      await createShow(payload);
       window.alert("Show created successfully.");
       setTheater("");
       setShowTime("19:00");
     } catch (err) {
+      console.error("[Admin][CreateShow] request failed", {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseBody: err.response?.data,
+        message: err.message,
+      });
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||

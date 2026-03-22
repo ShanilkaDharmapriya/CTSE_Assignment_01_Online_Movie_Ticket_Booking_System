@@ -2,6 +2,21 @@ const axios = require("axios");
 
 const BOOKING_SERVICE_URL = process.env.BOOKING_SERVICE_URL || "http://booking-service:4003";
 
+const buildProxyErrorPayload = (fallbackMessage, error) => {
+  const upstream = error.response?.data;
+  if (upstream && typeof upstream === "object") {
+    return {
+      ...upstream,
+      message: upstream.message || fallbackMessage,
+    };
+  }
+
+  return {
+    message: fallbackMessage,
+    error: error.message,
+  };
+};
+
 const buildBookingResponse = (payload) => {
   if (!payload || typeof payload !== "object") {
     return payload;
@@ -42,7 +57,9 @@ const updateBookingStatus = async (req, res) => {
     const response = await axios.patch(`${BOOKING_SERVICE_URL}/bookings/${req.params.id}/status`, req.body);
     res.status(200).json(buildBookingResponse(response.data));
   } catch (error) {
-    res.status(error.response?.status || 500).json({ message: "Failed to update booking status", error: error.message });
+    res
+      .status(error.response?.status || 500)
+      .json(buildProxyErrorPayload("Failed to update booking status", error));
   }
 };
 

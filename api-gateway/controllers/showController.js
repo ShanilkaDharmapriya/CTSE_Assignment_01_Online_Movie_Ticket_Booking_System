@@ -50,6 +50,12 @@ const createShow = async (req, res) => {
     });
     res.status(201).json(response.data);
   } catch (error) {
+    console.error("[Gateway][CreateShow] failed", {
+      requestBody: req.body,
+      status: error.response?.status,
+      upstreamBody: error.response?.data,
+      message: error.message,
+    });
     res
       .status(error.response?.status || 500)
       .json(buildProxyErrorPayload("Failed to create show", error));

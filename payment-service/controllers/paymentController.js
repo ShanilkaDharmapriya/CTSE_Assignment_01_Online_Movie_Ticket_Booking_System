@@ -10,6 +10,48 @@ const {
 
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
+const DEFAULT_INTERNAL_SERVICE_KEY = "ctse-internal-service-key-2026";
+
+const uniqueUrls = (urls) => [...new Set(urls.filter(Boolean).map((url) => String(url).replace(/\/+$/, "")))];
+
+const movieServiceCandidates = uniqueUrls([
+  MOVIE_SERVICE_URL,
+  "http://localhost:4001",
+  "http://movie-service:4001",
+]);
+
+const showServiceCandidates = uniqueUrls([
+  SHOW_SERVICE_URL,
+  "http://localhost:4002",
+  "http://show-service:4002",
+]);
+
+const requestWithFallback = async (method, baseUrls, endpoint, config = {}) => {
+  let notFoundError = null;
+  let lastError = null;
+
+  for (const baseUrl of baseUrls) {
+    try {
+      return await axios({
+        method,
+        url: `${baseUrl}${endpoint}`,
+        timeout: 7000,
+        ...config,
+      });
+    } catch (error) {
+      lastError = error;
+      if (error.response?.status === 404) {
+        notFoundError = error;
+      }
+    }
+  }
+
+  if (notFoundError) {
+    throw notFoundError;
+  }
+  throw lastError;
+};
+
 const toMinorUnits = (amount) => Math.round(Number(amount) * 100);
 
 const getSeatCount = (body) => Number(body.seatCount ?? body.seats);
@@ -17,7 +59,7 @@ const getSeatCount = (body) => Number(body.seatCount ?? body.seats);
 const getTicketPrice = (movie) => Number(movie.ticketPrice ?? movie.pricePerSeat ?? movie.price ?? 0);
 
 const getMovie = async (movieId) => {
-  const response = await axios.get(`${MOVIE_SERVICE_URL}/movies/${movieId}`);
+  const response = await requestWithFallback("get", movieServiceCandidates, `/movies/${movieId}`);
   if (!response.data) {
     throw new Error("Movie not found");
   }
@@ -25,21 +67,22 @@ const getMovie = async (movieId) => {
 };
 
 const getShow = async (showId) => {
-  const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${showId}`);
+  const response = await requestWithFallback("get", showServiceCandidates, `/shows/${showId}`);
   return response.data;
 };
 
 const getSeatInfo = async (showId) => {
-  const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${showId}/seats`);
+  const response = await requestWithFallback("get", showServiceCandidates, `/shows/${showId}/seats`);
   return response.data;
 };
 
 const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
-  await axios.put(`${SHOW_SERVICE_URL}/shows/${showId}`, {
-    availableSeats,
-    reservedSeats,
-  }, {
-    headers: { "X-Service-Key": process.env.INTERNAL_SERVICE_KEY || "" },
+  await requestWithFallback("put", showServiceCandidates, `/shows/${showId}`, {
+    data: {
+      availableSeats,
+      reservedSeats,
+    },
+    headers: { "X-Service-Key": process.env.INTERNAL_SERVICE_KEY || DEFAULT_INTERNAL_SERVICE_KEY },
   });
 };
 
@@ -54,6 +97,16 @@ const processPayment = async (req, res) => {
   const seatCount = getSeatCount(req.body);
   const currency = String(req.body.currency || STRIPE_CURRENCY).toLowerCase();
 
+  console.log("[PaymentService][ProcessPayment] request received", {
+    bookingId: req.body.bookingId,
+    userId: req.body.userId,
+    movieId: req.body.movieId,
+    showId: req.body.showId,
+    seats: seatCount,
+    paymentMethod: req.body.paymentMethod,
+    currency,
+  });
+
   if (!req.body.bookingId || !req.body.userId || !req.body.movieId || !req.body.showId || !Number.isInteger(seatCount) || seatCount < 1) {
     return res.status(400).json({
       message: "bookingId, userId, movieId, showId and a positive seats value are required",
@@ -66,6 +119,13 @@ const processPayment = async (req, res) => {
       getShow(req.body.showId),
       getSeatInfo(req.body.showId),
     ]);
+
+    console.log("[PaymentService][ProcessPayment] dependencies fetched", {
+      movieId: movie?._id || req.body.movieId,
+      showId: show?._id || req.body.showId,
+      availableSeats: seatInfo?.availableSeats,
+      reservedSeats: seatInfo?.reservedSeats,
+    });
 
     if (String(show.movieId) !== String(req.body.movieId)) {
       return res.status(400).json({ message: "Show does not belong to the specified movie" });
@@ -86,12 +146,13 @@ const processPayment = async (req, res) => {
       paymentStatus = "SUCCESS";
     } else {
       const paymentMethodId = req.body.paymentMethodId || (process.env.NODE_ENV !== "production" ? "pm_card_visa" : undefined);
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentPayload = {
         amount: toMinorUnits(amount),
         currency,
-        confirm: Boolean(paymentMethodId),
-        payment_method: paymentMethodId,
-        automatic_payment_methods: paymentMethodId ? undefined : { enabled: true },
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: "never",
+        },
         metadata: {
           bookingId: String(req.body.bookingId),
           userId: req.body.userId,
@@ -99,12 +160,24 @@ const processPayment = async (req, res) => {
           showId: req.body.showId,
           seats: String(seatCount),
         },
-      });
+      };
+
+      if (paymentMethodId) {
+        paymentIntentPayload.confirm = true;
+        paymentIntentPayload.payment_method = paymentMethodId;
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentPayload);
 
       paymentStatus = mapStripeStatus(paymentIntent.status);
       stripePaymentIntentId = paymentIntent.id;
       clientSecret = paymentIntent.client_secret;
       failureReason = paymentIntent.last_payment_error?.message || null;
+
+      console.log("[PaymentService][ProcessPayment] stripe intent created", {
+        paymentIntentId: paymentIntent.id,
+        paymentStatus,
+      });
     }
 
     if (paymentStatus === "SUCCESS") {
@@ -131,6 +204,13 @@ const processPayment = async (req, res) => {
       failureReason,
     });
 
+    console.log("[PaymentService][ProcessPayment] payment stored", {
+      paymentId: payment._id,
+      paymentStatus: payment.paymentStatus,
+      amount: payment.amount,
+      provider: payment.provider,
+    });
+
     if (payment.paymentStatus !== "SUCCESS") {
       return res.status(402).json({
         paymentId: payment._id,
@@ -154,6 +234,20 @@ const processPayment = async (req, res) => {
       stripePaymentIntentId: payment.stripePaymentIntentId,
     });
   } catch (error) {
+    console.error("[PaymentService][ProcessPayment] failed", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      upstreamStatus: error.response?.status,
+      upstreamBody: error.response?.data,
+    });
+    if (error.response) {
+      return res.status(error.response.status).json({
+        message: "Failed to process payment",
+        error: error.response?.data?.message || error.message,
+        upstream: error.response?.data,
+      });
+    }
     return res.status(500).json({ message: "Failed to process payment", error: error.message });
   }
 };

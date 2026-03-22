@@ -149,8 +149,20 @@ export async function updateBookingStatus(bookingId, payload) {
 }
 
 export async function processPayment(payload) {
-  const { data } = await api.post("/payments", payload);
-  return normalizePaymentPayload(data);
+  console.log("[API][processPayment] request payload", payload);
+  try {
+    const { data } = await api.post("/payments", payload);
+    console.log("[API][processPayment] response body", data);
+    return normalizePaymentPayload(data);
+  } catch (error) {
+    console.error("[API][processPayment] request failed", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseBody: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
 }
 
 export async function fetchBookings(params = {}) {

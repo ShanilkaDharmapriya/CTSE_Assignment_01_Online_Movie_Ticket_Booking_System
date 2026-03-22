@@ -102,6 +102,16 @@ export default function Payment() {
       const derivedPaymentMethodId =
         paymentMethod === "stripe" ? deriveStripeTestPaymentMethodId(cardNumber) : undefined;
 
+      console.log("[PaymentPage] submitting payment", {
+        bookingId,
+        movieId,
+        showId,
+        seats,
+        paymentMethod,
+        paymentMethodId: derivedPaymentMethodId,
+        currency,
+      });
+
       const paymentResult = await processPayment({
         bookingId,
         movieId,
@@ -111,6 +121,8 @@ export default function Payment() {
         paymentMethodId: derivedPaymentMethodId,
         currency,
       });
+
+      console.log("[PaymentPage] payment succeeded", paymentResult);
 
       await updateBookingStatus(bookingId, {
         status: "CONFIRMED",
@@ -122,8 +134,19 @@ export default function Payment() {
         paymentMethod: paymentResult.paymentMethod,
       });
 
+      console.log("[PaymentPage] booking status updated to CONFIRMED", {
+        bookingId,
+        paymentId: paymentResult.paymentId,
+      });
+
       setSuccessData(paymentResult);
     } catch (err) {
+      console.error("[PaymentPage] payment flow failed", {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseBody: err.response?.data,
+        message: err.message,
+      });
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
