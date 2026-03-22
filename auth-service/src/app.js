@@ -9,7 +9,7 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const authController = require('./controllers/authController');
 
-const { PORT } = require("./config");
+const { PORT } = require("./config/config");
 
 const app = express();
 
