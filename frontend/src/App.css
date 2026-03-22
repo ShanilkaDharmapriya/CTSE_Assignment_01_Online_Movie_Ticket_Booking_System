@@ -553,3 +553,137 @@
   resize: vertical;
   margin-bottom: 0.7rem;
 }
+
+/* --- Seat map (show booking) --- */
+.seat-booking-panel {
+  margin-top: 2rem;
+}
+
+.seat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.25rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.seat-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.seat-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.seat-dot--available {
+  background: #2e7d32;
+}
+.seat-dot--held {
+  background: #f9a825;
+}
+.seat-dot--booked {
+  background: #c62828;
+}
+.seat-dot--selected {
+  background: #42a5f5;
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.seat-map-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1rem 1.25rem;
+  background: var(--bg-elevated);
+  overflow-x: auto;
+}
+
+.seat-screen {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.35em;
+  color: var(--text-muted);
+  padding: 0.5rem 0 1rem;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 0.85rem;
+}
+
+.seat-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: min(100%, 720px);
+  margin: 0 auto;
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.seat-row-label {
+  width: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.seat-row-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.seat-cell {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.seat-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.seat-cell--available {
+  background: #2e7d32;
+}
+
+.seat-cell--held {
+  background: #f9a825;
+  color: #1a1a1a;
+}
+
+.seat-cell--held-mine {
+  background: #ffca28;
+  color: #1a1a1a;
+}
+
+.seat-cell--booked {
+  background: #c62828;
+  cursor: not-allowed;
+}
+
+.seat-cell--selected {
+  box-shadow: 0 0 0 2px #42a5f5, 0 0 12px rgba(66, 165, 245, 0.45);
+  transform: scale(1.06);
+}
+
+.seat-cell:not(:disabled):hover {
+  filter: brightness(1.08);
+}

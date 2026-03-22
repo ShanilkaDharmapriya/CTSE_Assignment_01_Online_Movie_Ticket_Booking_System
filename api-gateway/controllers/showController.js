@@ -7,13 +7,25 @@ const getAuthHeaders = (req) => {
   return authorization ? { Authorization: authorization } : {};
 };
 
-// GET /shows  (supports ?movieId=&date=&status=)
+// GET /shows  (public: upcoming ACTIVE shows)
 const getAllShows = async (req, res) => {
   try {
     const response = await axios.get(`${SHOW_SERVICE_URL}/shows`, { params: req.query });
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch shows", error: error.message });
+  }
+};
+
+const getAllShowsAdmin = async (req, res) => {
+  try {
+    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/admin/list`, {
+      params: req.query,
+      headers: getAuthHeaders(req),
+    });
+    res.status(200).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ message: "Failed to fetch shows (admin)", error: error.message });
   }
 };
 
@@ -96,4 +108,12 @@ const getSeatInfo = async (req, res) => {
   }
 };
 
-module.exports = { getAllShows, getShowById, createShow, updateShow, deleteShow, getSeatInfo };
+module.exports = {
+  getAllShows,
+  getAllShowsAdmin,
+  getShowById,
+  createShow,
+  updateShow,
+  deleteShow,
+  getSeatInfo,
+};

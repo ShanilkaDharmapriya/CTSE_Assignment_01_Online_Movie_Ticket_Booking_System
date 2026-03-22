@@ -3,42 +3,68 @@ const axios = require("axios");
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || "ctse-internal-service-key-2026";
 
-const requireAdmin = async (req, res, next) => {
+async function validateBearerAndAttachUser(req) {
   const authHeader = req.headers.authorization || req.headers.Authorization;
   if (!authHeader) {
-    return res.status(401).json({ message: "Unauthorized: missing Authorization header" });
+    const err = new Error("Unauthorized: missing Authorization header");
+    err.statusCode = 401;
+    throw err;
   }
 
+  const response = await axios.get(`${AUTH_SERVICE_URL}/auth/validate`, {
+    headers: { Authorization: authHeader },
+    timeout: 5000,
+  });
+
+  const user = response.data?.data?.user;
+  if (!user) {
+    const err = new Error("Unauthorized");
+    err.statusCode = 401;
+    throw err;
+  }
+
+  req.auth = { user };
+  return user;
+}
+
+const requireAuth = async (req, res, next) => {
   try {
-    const response = await axios.get(`${AUTH_SERVICE_URL}/auth/validate`, {
-      headers: { Authorization: authHeader },
-      timeout: 5000,
-    });
-
-    const role = response.data?.data?.user?.role;
-    if (role !== "admin") {
-      return res.status(403).json({ message: "Forbidden: admin role required" });
-    }
-
-    req.auth = response.data?.data || null;
+    await validateBearerAndAttachUser(req);
     return next();
   } catch (error) {
     if (error.response) {
-      return res.status(error.response.status).json(
-        error.response.data || { message: "Unauthorized" }
-      );
+      return res
+        .status(error.response.status)
+        .json(error.response.data || { message: "Unauthorized" });
     }
-
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     return res.status(503).json({ message: "Auth service unavailable" });
   }
 };
 
-module.exports = {
-  requireAdmin,
-  requireAdminOrService,
+const requireAdmin = async (req, res, next) => {
+  try {
+    await validateBearerAndAttachUser(req);
+    const role = String(req.auth?.user?.role || "").toLowerCase();
+    if (role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: admin role required" });
+    }
+    return next();
+  } catch (error) {
+    if (error.response) {
+      return res
+        .status(error.response.status)
+        .json(error.response.data || { message: "Unauthorized" });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    return res.status(503).json({ message: "Auth service unavailable" });
+  }
 };
 
-// Allows internal microservice calls (via X-Service-Key header) OR admin JWT.
 async function requireAdminOrService(req, res, next) {
   const serviceKey = req.headers["x-service-key"];
   if (INTERNAL_SERVICE_KEY && serviceKey === INTERNAL_SERVICE_KEY) {
@@ -46,3 +72,18 @@ async function requireAdminOrService(req, res, next) {
   }
   return requireAdmin(req, res, next);
 }
+
+const requireServiceKey = (req, res, next) => {
+  const serviceKey = req.headers["x-service-key"];
+  if (!INTERNAL_SERVICE_KEY || serviceKey !== INTERNAL_SERVICE_KEY) {
+    return res.status(401).json({ message: "Unauthorized: invalid service key" });
+  }
+  return next();
+};
+
+module.exports = {
+  requireAuth,
+  requireAdmin,
+  requireAdminOrService,
+  requireServiceKey,
+};

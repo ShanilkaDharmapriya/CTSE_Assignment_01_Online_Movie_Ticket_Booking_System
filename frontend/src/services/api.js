@@ -137,15 +137,50 @@ export async function fetchShows(params = {}) {
   return data;
 }
 
-export async function createBooking(payload) {
-  // { movieId, showId, seats }
-  const { data } = await api.post("/bookings", payload);
-  return normalizeBookingPayload(data);
+/** Admin: all shows including completed / cancelled (requires admin JWT). */
+export async function fetchShowsAdmin(params = {}) {
+  const { data } = await api.get("/shows/admin/list", { params });
+  return data;
 }
 
-export async function updateBookingStatus(bookingId, payload) {
-  const { data } = await api.patch(`/bookings/${bookingId}/status`, payload);
-  return normalizeBookingPayload(data);
+export async function fetchTheaters() {
+  const { data } = await api.get("/theaters");
+  return data;
+}
+
+export async function createTheater(payload) {
+  const { data } = await api.post("/theaters", payload);
+  return data;
+}
+
+export async function updateTheater(theaterId, payload) {
+  const { data } = await api.put(`/theaters/${theaterId}`, payload);
+  return data;
+}
+
+export async function deleteTheater(theaterId) {
+  const { data } = await api.delete(`/theaters/${theaterId}`);
+  return data;
+}
+
+/** Full seat layout for a show (AVAILABLE | HELD | BOOKED per seat). */
+export async function fetchSeatLayout(showId) {
+  const { data } = await api.get(`/shows/${showId}/seats`);
+  return data;
+}
+
+/**
+ * Atomically hold specific seats for the current user (5-minute TTL server-side).
+ * @returns {Promise<{ success: boolean, data: { showId, seatNumbers, expiresAt, holdDurationMs } }>}
+ */
+export async function holdSeats(showId, seats) {
+  const { data } = await api.post("/seats/hold", { showId, seats });
+  return data;
+}
+
+export async function releaseSeats(showId, seats) {
+  const { data } = await api.post("/seats/release", { showId, seats });
+  return data;
 }
 
 export async function processPayment(payload) {

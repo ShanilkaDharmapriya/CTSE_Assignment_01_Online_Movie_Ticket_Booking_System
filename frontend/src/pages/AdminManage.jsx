@@ -6,7 +6,7 @@ import {
   fetchBookings,
   fetchMovies,
   fetchPayments,
-  fetchShows,
+  fetchShowsAdmin,
   updateMovieFormData,
   updateShow,
 } from "../services/api.js";
@@ -54,10 +54,8 @@ export default function AdminManage() {
 
   const [editingShowId, setEditingShowId] = useState("");
   const [showForm, setShowForm] = useState({
-    theater: "",
-    date: "",
-    showTime: "",
-    availableSeats: "",
+    movieId: "",
+    markCancelled: false,
   });
 
   const moviesById = useMemo(
@@ -73,7 +71,7 @@ export default function AdminManage() {
     try {
       const [moviesData, showsData, bookingsData, paymentsData] = await Promise.all([
         fetchMovies(),
-        fetchShows(),
+        fetchShowsAdmin(),
         fetchBookings(),
         fetchPayments(),
       ]);
@@ -163,10 +161,8 @@ export default function AdminManage() {
   const beginShowEdit = (show) => {
     setEditingShowId(show._id);
     setShowForm({
-      theater: show.theater || "",
-      date: toDateInput(show.date),
-      showTime: show.showTime || "",
-      availableSeats: String(show.availableSeats || ""),
+      movieId: show.movieId || "",
+      markCancelled: false,
     });
   };
 
@@ -176,12 +172,11 @@ export default function AdminManage() {
     setMessage("");
     setError("");
     try {
-      await updateShow(editingShowId, {
-        theater: showForm.theater.trim(),
-        date: new Date(`${showForm.date}T12:00:00`).toISOString(),
-        showTime: showForm.showTime,
-        availableSeats: Number(showForm.availableSeats),
-      });
+      if (showForm.markCancelled) {
+        await updateShow(editingShowId, { status: "CANCELLED" });
+      } else {
+        await updateShow(editingShowId, { movieId: showForm.movieId.trim() });
+      }
       setEditingShowId("");
       setMessage("Show updated successfully.");
       notify("Show updated successfully.", "success");
@@ -195,7 +190,7 @@ export default function AdminManage() {
   const removeShow = async (showId) => {
       const ok = await confirm({
         title: "Delete show",
-        message: "Do you want to delete this show?",
+        message: "Cancel this show? Seats and history are kept; status becomes CANCELLED.",
         confirmText: "Delete",
         cancelText: "Keep",
         intent: "danger",
@@ -206,8 +201,8 @@ export default function AdminManage() {
     setError("");
     try {
       await deleteShowById(showId);
-      setMessage("Show deleted successfully.");
-      notify("Show deleted successfully.", "success");
+      setMessage("Show cancelled (data retained).");
+      notify("Show cancelled (data retained).", "success");
       await loadData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to delete show.";
@@ -397,9 +392,11 @@ export default function AdminManage() {
                 <thead>
                   <tr>
                     <th>Movie</th>
-                    <th>Theater</th>
-                    <th>Date/Time</th>
-                    <th>Seats</th>
+                    <th>Hall</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Status</th>
+                    <th>Seats (avail)</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -407,26 +404,29 @@ export default function AdminManage() {
                   {asList(shows).map((show) => (
                     <tr key={show._id}>
                       <td>{moviesById[show.movieId]?.title || show.movieId}</td>
-                      <td>{show.theater}</td>
+                      <td>{show.theaterId?.name || show.theaterId || "—"}</td>
+                      <td>{formatDateTime(show.startTime)}</td>
+                      <td>{formatDateTime(show.endTime)}</td>
+                      <td>{show.status || "—"}</td>
                       <td>
-                        {formatDateTime(show.date)} {show.showTime ? `(${show.showTime})` : ""}
-                      </td>
-                      <td>
-                        {show.availableSeats} / {show.reservedSeats}
+                        {show.availableSeats ?? "—"}
+                        {typeof show.heldSeats === "number" && show.heldSeats > 0
+                          ? ` (+${show.heldSeats} held)`
+                          : ""}
                       </td>
                       <td className="admin-row-actions">
                         <button type="button" className="btn btn--ghost" onClick={() => beginShowEdit(show)}>
                           Edit
                         </button>
                         <button type="button" className="btn btn--ghost" onClick={() => removeShow(show._id)}>
-                          Delete
+                          Cancel show
                         </button>
                       </td>
                     </tr>
                   ))}
                   {!shows.length && (
                     <tr>
-                      <td colSpan={5}>No shows found.</td>
+                      <td colSpan={7}>No shows found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -436,36 +436,30 @@ export default function AdminManage() {
             {editingShowId && (
               <div className="admin-inline-edit">
                 <h3>Edit show</h3>
+                <p className="admin-hint" style={{ marginTop: 0 }}>
+                  You can fix a wrong movie link or cancel the show. Times and hall cannot be changed after creation.
+                </p>
                 <div className="admin-inline-grid">
                   <input
-                    value={showForm.theater}
-                    onChange={(e) => setShowForm((prev) => ({ ...prev, theater: e.target.value }))}
-                    placeholder="Theater"
+                    value={showForm.movieId}
+                    onChange={(e) => setShowForm((prev) => ({ ...prev, movieId: e.target.value }))}
+                    placeholder="Movie ID (Mongo _id)"
                   />
-                  <input
-                    value={showForm.date}
-                    onChange={(e) => setShowForm((prev) => ({ ...prev, date: e.target.value }))}
-                    type="date"
-                  />
-                  <input
-                    value={showForm.showTime}
-                    onChange={(e) => setShowForm((prev) => ({ ...prev, showTime: e.target.value }))}
-                    placeholder="Show time"
-                  />
-                  <input
-                    value={showForm.availableSeats}
-                    onChange={(e) => setShowForm((prev) => ({ ...prev, availableSeats: e.target.value }))}
-                    type="number"
-                    min={0}
-                    placeholder="Available seats"
-                  />
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={showForm.markCancelled}
+                      onChange={(e) => setShowForm((prev) => ({ ...prev, markCancelled: e.target.checked }))}
+                    />
+                    Cancel show (CANCELLED)
+                  </label>
                 </div>
                 <div className="admin-row-actions">
                   <button type="button" className="btn btn--primary" onClick={saveShowEdit}>
                     Save show
                   </button>
                   <button type="button" className="btn btn--ghost" onClick={() => setEditingShowId("")}>
-                    Cancel
+                    Close
                   </button>
                 </div>
               </div>
@@ -492,7 +486,9 @@ export default function AdminManage() {
                       <td>{booking.bookingReference || booking.bookingId || booking._id}</td>
                       <td>{booking.userId || "-"}</td>
                       <td>{moviesById[booking.movieId]?.title || booking.movieId || "-"}</td>
-                      <td>{booking.seats}</td>
+                      <td>
+                        {Array.isArray(booking.seats) ? booking.seats.join(", ") : booking.seats ?? "-"}
+                      </td>
                       <td>{booking.status || booking.paymentStatus || "-"}</td>
                       <td>{formatDateTime(booking.createdAt)}</td>
                     </tr>

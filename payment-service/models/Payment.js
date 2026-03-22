@@ -24,6 +24,10 @@ const paymentSchema = new mongoose.Schema(
       required: [true, "Seat count is required"],
       min: [1, "Seat count must be at least 1"],
     },
+    seatNumbers: {
+      type: [String],
+      default: [],
+    },
     amount: {
       type: Number,
       required: [true, "Amount is required"],

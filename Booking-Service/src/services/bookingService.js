@@ -3,89 +3,80 @@ const {
   addBooking,
   getAllBookings,
   getBookingById,
-  updateBookingById
+  updateBookingById,
 } = require("../models/bookingStore");
-const {
-  getMovieById,
-  getShowById
-} = require("./externalServices");
+const { getMovieById, getShowById } = require("./externalServices");
 
-function convertToNumber(value) {
-  const parsedNumber = Number(value);
-  return Number.isNaN(parsedNumber) ? null : parsedNumber;
+function normalizeSeatList(seats) {
+  if (!Array.isArray(seats)) return [];
+  return [...new Set(seats.map((s) => String(s).trim().toUpperCase()).filter(Boolean))];
 }
 
-function validateNewBookingInput(payload) {
-  const { userId, movieId, showId, seats, bookingId, status } = payload || {};
-  const requestedSeatCount = convertToNumber(seats);
+function validateConfirmedBookingPayload(payload) {
+  const { userId, movieId, showId, seats, bookingId, status, paymentId } = payload || {};
 
-  // Basic input check to stop invalid requests early.
-  if (
-    !userId ||
-    !movieId ||
-    !showId ||
-    !Number.isInteger(requestedSeatCount) ||
-    requestedSeatCount <= 0
-  ) {
+  const seatList = normalizeSeatList(seats);
+  if (!userId || !movieId || !showId || seatList.length === 0) {
     const validationError = new Error(
-      "Invalid input: userId, movieId, showId and positive integer seats are required"
+      "Invalid input: userId, movieId, showId, non-empty seats array, and paymentId are required"
     );
     validationError.statusCode = 400;
     throw validationError;
   }
 
-  const normalizedStatus = String(status || "PENDING_PAYMENT").toUpperCase();
-  const allowedStatuses = ["PENDING_PAYMENT", "CONFIRMED", "PAYMENT_FAILED", "CANCELLED"];
+  if (!paymentId) {
+    const err = new Error("paymentId is required for confirmed bookings");
+    err.statusCode = 400;
+    throw err;
+  }
 
-  if (!allowedStatuses.includes(normalizedStatus)) {
-    const statusError = new Error("Invalid status value");
-    statusError.statusCode = 400;
-    throw statusError;
+  const normalizedStatus = String(status || "").toUpperCase();
+  if (normalizedStatus !== "CONFIRMED") {
+    const err = new Error("Bookings can only be created as CONFIRMED after successful payment");
+    err.statusCode = 400;
+    throw err;
   }
 
   return {
-    userId,
-    movieId,
-    showId,
-    seats: requestedSeatCount,
+    userId: String(userId),
+    movieId: String(movieId),
+    showId: String(showId),
+    seats: seatList,
     bookingId: bookingId ? String(bookingId) : null,
     status: normalizedStatus,
+    paymentId: String(paymentId),
   };
 }
 
 async function createBooking(payload) {
-  const { userId, movieId, showId, seats, bookingId: incomingBookingId, status } = validateNewBookingInput(payload);
+  const {
+    userId,
+    movieId,
+    showId,
+    seats,
+    bookingId: incomingBookingId,
+    status,
+    paymentId,
+  } = validateConfirmedBookingPayload(payload);
 
-  // Check movie exists before making a booking.
   try {
     await getMovieById(movieId);
-  } catch (error) {
+  } catch {
     const movieError = new Error("Movie not found");
     movieError.statusCode = 400;
     throw movieError;
   }
 
-  // Check show exists and use it for seat and amount details.
-  let showDetails;
   try {
-    showDetails = await getShowById(showId);
-  } catch (error) {
+    await getShowById(showId);
+  } catch {
     const showError = new Error("Show not found");
     showError.statusCode = 400;
     throw showError;
   }
 
-  // Make sure requested seats are available.
-  if (convertToNumber(showDetails.availableSeats) < seats) {
-    const seatError = new Error("Not enough seats available");
-    seatError.statusCode = 400;
-    throw seatError;
-  }
-
-  // Create booking id and keep it pending until frontend completes payment.
   const bookingId = incomingBookingId || uuidv4();
 
-  // Save pending booking record; payment outcome is applied via status update endpoint.
   const createdBooking = addBooking({
     bookingId,
     bookingReference: bookingId,
@@ -94,13 +85,14 @@ async function createBooking(payload) {
     showId,
     seats,
     status,
-    paymentStatus: payload?.paymentStatus ? String(payload.paymentStatus).toUpperCase() : undefined,
-    paymentId: payload?.paymentId,
+    paymentStatus: payload?.paymentStatus ? String(payload.paymentStatus).toUpperCase() : "SUCCESS",
+    paymentId,
     amount: payload?.amount !== undefined ? Number(payload.amount) : undefined,
     currency: payload?.currency ? String(payload.currency).toLowerCase() : undefined,
     provider: payload?.provider,
     paymentMethod: payload?.paymentMethod,
     createdAt: new Date().toISOString(),
+    confirmedAt: new Date().toISOString(),
   });
 
   return createdBooking;
@@ -191,5 +183,5 @@ module.exports = {
   getBookings,
   getBooking,
   cancelBooking,
-  updateBookingStatus
+  updateBookingStatus,
 };

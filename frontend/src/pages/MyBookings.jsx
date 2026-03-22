@@ -67,7 +67,11 @@ export default function MyBookings() {
                     <td>{booking.bookingReference || booking.bookingId || "-"}</td>
                     <td>{moviesById[booking.movieId]?.title || booking.movieId || "-"}</td>
                     <td>{booking.showId || "-"}</td>
-                    <td>{booking.seats || "-"}</td>
+                    <td>
+                      {Array.isArray(booking.seats)
+                        ? booking.seats.join(", ")
+                        : booking.seats ?? "-"}
+                    </td>
                     <td>{booking.status || "-"}</td>
                     <td>{booking.paymentStatus || "-"}</td>
                     <td>{formatDateTime(booking.createdAt)}</td>

@@ -116,9 +116,7 @@ const getMovieWithShows = async (req, res) => {
 
     let shows = [];
     try {
-      const showResponse = await axios.get(
-        `${SHOW_SERVICE_URL}/shows?movieId=${req.params.id}&status=active`
-      );
+      const showResponse = await axios.get(`${SHOW_SERVICE_URL}/shows?movieId=${req.params.id}`);
       shows = showResponse.data;
     } catch {
       // show-service may be temporarily unavailable; return movie info + empty shows
@@ -180,17 +178,22 @@ const deleteMovie = async (req, res) => {
       return res.status(404).json({ message: "Movie not found" });
     }
 
-    // Best-effort: cancel active shows in show-service
+    // Best-effort: cancel ACTIVE shows for this movie (requires internal key)
     try {
-      const showRes = await axios.get(
-        `${SHOW_SERVICE_URL}/shows?movieId=${req.params.id}&status=active`
-      );
-      const activeShows = showRes.data;
-      await Promise.all(
-        activeShows.map((show) =>
-          axios.put(`${SHOW_SERVICE_URL}/shows/${show._id}`, { status: "cancelled" })
-        )
-      );
+      const key = process.env.INTERNAL_SERVICE_KEY;
+      if (key) {
+        const headers = { "X-Service-Key": key };
+        const showRes = await axios.get(
+          `${SHOW_SERVICE_URL}/internal/shows/list?movieId=${req.params.id}`,
+          { headers, timeout: 8000 }
+        );
+        const activeShows = Array.isArray(showRes.data) ? showRes.data : [];
+        await Promise.all(
+          activeShows.map((show) =>
+            axios.put(`${SHOW_SERVICE_URL}/shows/${show._id}`, { status: "CANCELLED" }, { headers, timeout: 8000 })
+          )
+        );
+      }
     } catch {
       // Non-fatal: log but don't fail the delete
     }

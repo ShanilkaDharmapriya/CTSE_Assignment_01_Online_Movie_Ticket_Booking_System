@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import {
   createMovieFormData,
   createShow,
+  createTheater,
   fetchMovies,
+  fetchTheaters,
 } from "../services/api.js";
 import { usePopup } from "../context/PopupContext.jsx";
 
@@ -33,12 +35,18 @@ export default function Admin() {
     new Date().toISOString().slice(0, 10)
   );
 
-  // Create show form
+  const [theaters, setTheaters] = useState([]);
+
+  const [theaterName, setTheaterName] = useState("");
+  const [theaterRows, setTheaterRows] = useState("A,B,C,D,E,F");
+  const [theaterSeatsPerRow, setTheaterSeatsPerRow] = useState(18);
+  const [theaterMsg, setTheaterMsg] = useState("");
+  const [theaterLoading, setTheaterLoading] = useState(false);
+
   const [movieId, setMovieId] = useState("");
-  const [theater, setTheater] = useState("");
-  const [showDate, setShowDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [showTime, setShowTime] = useState("19:00");
-  const [availableSeats, setAvailableSeats] = useState(80);
+  const [theaterId, setTheaterId] = useState("");
+  const [showStart, setShowStart] = useState("");
+  const [showEnd, setShowEnd] = useState("");
   const [showMsg, setShowMsg] = useState("");
   const [showLoading, setShowLoading] = useState(false);
 
@@ -52,8 +60,18 @@ export default function Admin() {
     }
   };
 
+  const refreshTheaters = async () => {
+    try {
+      const data = await fetchTheaters();
+      setTheaters(Array.isArray(data) ? data : []);
+    } catch {
+      setTheaters([]);
+    }
+  };
+
   useEffect(() => {
     refreshMovies();
+    refreshTheaters();
   }, []);
 
   const handleAddMovie = async (e) => {
@@ -102,32 +120,57 @@ export default function Admin() {
     }
   };
 
+  const handleCreateTheater = async (e) => {
+    e.preventDefault();
+    setTheaterMsg("");
+    setTheaterLoading(true);
+    try {
+      const rows = theaterRows
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean);
+      await createTheater({
+        name: theaterName.trim(),
+        rows,
+        seatsPerRow: Number(theaterSeatsPerRow),
+      });
+      notify("Theater created.", "success");
+      setTheaterName("");
+      await refreshTheaters();
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to create theater.";
+      setTheaterMsg(String(msg));
+      notify(`Error: ${msg}`, "error", 3600);
+    } finally {
+      setTheaterLoading(false);
+    }
+  };
+
   const handleCreateShow = async (e) => {
     e.preventDefault();
     setShowMsg("");
     setShowLoading(true);
     try {
-      const dateIso = new Date(`${showDate}T12:00:00`).toISOString();
-      const payload = {
-        movieId,
-        theater: theater.trim(),
-        date: dateIso,
-        showTime,
-        availableSeats: Number(availableSeats),
-      };
+      const startTime = new Date(showStart).toISOString();
+      const endTime = new Date(showEnd).toISOString();
+      if (!theaterId || Number.isNaN(new Date(showStart).getTime()) || Number.isNaN(new Date(showEnd).getTime())) {
+        throw new Error("Select a hall and valid start/end times.");
+      }
+      if (new Date(endTime) <= new Date(startTime)) {
+        throw new Error("End time must be after start time.");
+      }
 
-      console.log("[Admin][CreateShow] request payload", payload);
+      const payload = { movieId, theaterId, startTime, endTime };
+
       await createShow(payload);
       notify("Show created successfully.", "success");
-      setTheater("");
-      setShowTime("19:00");
+      setShowStart("");
+      setShowEnd("");
     } catch (err) {
-      console.error("[Admin][CreateShow] request failed", {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        responseBody: err.response?.data,
-        message: err.message,
-      });
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -144,7 +187,7 @@ export default function Admin() {
     <main className="main-pad">
       <div className="page-hero">
         <h1>Admin dashboard</h1>
-        <p>Add movies and schedule showtimes.</p>
+        <p>Add movies, define halls, and schedule showtimes with real seat maps.</p>
       </div>
 
       {loadError && <p className="state-msg state-msg--error">{loadError}</p>}
@@ -223,6 +266,46 @@ export default function Admin() {
         </section>
 
         <section className="admin-card">
+          <h2>Create theater (hall template)</h2>
+          <form onSubmit={handleCreateTheater}>
+            <div className="form-group">
+              <label>Hall name</label>
+              <input
+                value={theaterName}
+                onChange={(e) => setTheaterName(e.target.value)}
+                placeholder="IMAX 1"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Row labels (comma-separated)</label>
+              <input
+                value={theaterRows}
+                onChange={(e) => setTheaterRows(e.target.value)}
+                placeholder="A,B,C,D"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Seats per row</label>
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={theaterSeatsPerRow}
+                onChange={(e) => setTheaterSeatsPerRow(Number(e.target.value))}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn--primary" disabled={theaterLoading}>
+              {theaterLoading ? "Saving…" : "Create theater"}
+            </button>
+            {theaterMsg && <p className="form-error">{theaterMsg}</p>}
+            <p className="admin-hint">Seats are named row + number (e.g. A1…A18). Layout version increments when you edit rows.</p>
+          </form>
+        </section>
+
+        <section className="admin-card">
           <h2>Create show</h2>
           <form onSubmit={handleCreateShow}>
             <div className="form-group">
@@ -238,23 +321,30 @@ export default function Admin() {
             </div>
             <div className="form-group">
               <label>Theater</label>
-              <input value={theater} onChange={(e) => setTheater(e.target.value)} required />
+              <select value={theaterId} onChange={(e) => setTheaterId(e.target.value)} required>
+                <option value="">Select hall…</option>
+                {theaters.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name} ({t.rows?.length || 0} rows × {t.seatsPerRow || 0})
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
-              <label>Date</label>
-              <input type="date" value={showDate} onChange={(e) => setShowDate(e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label>Time</label>
-              <input value={showTime} onChange={(e) => setShowTime(e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label>Available seats</label>
+              <label>Start</label>
               <input
-                type="number"
-                min={1}
-                value={availableSeats}
-                onChange={(e) => setAvailableSeats(Number(e.target.value))}
+                type="datetime-local"
+                value={showStart}
+                onChange={(e) => setShowStart(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>End</label>
+              <input
+                type="datetime-local"
+                value={showEnd}
+                onChange={(e) => setShowEnd(e.target.value)}
                 required
               />
             </div>
@@ -262,6 +352,7 @@ export default function Admin() {
               {showLoading ? "Creating…" : "Create show"}
             </button>
             {showMsg && <p className="form-error">{showMsg}</p>}
+            <p className="admin-hint">Seats for this performance are generated from the hall template. Overlapping times in the same hall are rejected.</p>
           </form>
         </section>
       </div>

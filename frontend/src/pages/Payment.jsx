@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { processPayment, updateBookingStatus } from "../services/api.js";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { processPayment } from "../services/api.js";
 
 const toDigits = (value) => String(value || "").replace(/\D/g, "");
 
@@ -21,7 +21,6 @@ const isFutureExpiry = (value) => {
 const deriveStripeTestPaymentMethodId = (cardNumber) => {
   const digits = toDigits(cardNumber);
 
-  // Map common Stripe test cards to known payment method IDs.
   if (digits === "4000000000000002") return "pm_card_chargeDeclined";
   if (digits === "4000002500003155") return "pm_card_authenticationRequired";
   return "pm_card_visa";
@@ -29,12 +28,15 @@ const deriveStripeTestPaymentMethodId = (cardNumber) => {
 
 export default function Payment() {
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const booking = location.state?.booking || null;
   const movie = location.state?.movie || null;
   const show = location.state?.show || null;
-  const seats = Number(location.state?.seats || booking?.seats || 0);
+  const bookingId = location.state?.bookingId || null;
+  const seatNumbers = Array.isArray(location.state?.seatNumbers) ? location.state.seatNumbers : [];
+  const holdExpiresAt = location.state?.holdExpiresAt || null;
+
+  const showId = show?._id;
+  const movieId = movie?._id;
 
   const [paymentMethod, setPaymentMethod] = useState("stripe");
   const [currency, setCurrency] = useState("usd");
@@ -45,20 +47,33 @@ export default function Payment() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [successData, setSuccessData] = useState(null);
+  const [secondsLeft, setSecondsLeft] = useState(null);
 
-  const bookingId = booking?.bookingId || booking?.bookingReference;
-  const showId = show?._id || booking?.showId;
-  const movieId = movie?._id || booking?.movieId;
+  const seatCount = seatNumbers.length;
+
+  useEffect(() => {
+    if (!holdExpiresAt) {
+      setSecondsLeft(null);
+      return;
+    }
+    const end = new Date(holdExpiresAt).getTime();
+    const tick = () => {
+      setSecondsLeft(Math.max(0, Math.floor((end - Date.now()) / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [holdExpiresAt]);
 
   const summaryAmountText = useMemo(() => {
     const ticketPrice = Number(movie?.pricePerSeat || movie?.price || 0);
-    if (Number.isFinite(ticketPrice) && ticketPrice > 0 && Number.isFinite(seats) && seats > 0) {
-      return `${(ticketPrice * seats).toFixed(2)} ${String(currency || "usd").toUpperCase()}`;
+    if (Number.isFinite(ticketPrice) && ticketPrice > 0 && seatCount > 0) {
+      return `${(ticketPrice * seatCount).toFixed(2)} ${String(currency || "usd").toUpperCase()}`;
     }
     return "Calculated by backend";
-  }, [movie, seats, currency]);
+  }, [movie, seatCount, currency]);
 
-  if (!bookingId || !showId || !movieId || !Number.isInteger(seats) || seats < 1) {
+  if (!bookingId || !showId || !movieId || seatCount < 1) {
     return <Navigate to="/" replace />;
   }
 
@@ -90,6 +105,11 @@ export default function Payment() {
     e.preventDefault();
     setError("");
 
+    if (secondsLeft === 0) {
+      setError("Your seat hold has expired. Go back and choose seats again.");
+      return;
+    }
+
     const validationMessage = validateCardDetails();
     if (validationMessage) {
       setError(validationMessage);
@@ -102,72 +122,35 @@ export default function Payment() {
       const derivedPaymentMethodId =
         paymentMethod === "stripe" ? deriveStripeTestPaymentMethodId(cardNumber) : undefined;
 
-      console.log("[PaymentPage] submitting payment", {
-        bookingId,
-        movieId,
-        showId,
-        seats,
-        paymentMethod,
-        paymentMethodId: derivedPaymentMethodId,
-        currency,
-      });
-
       const paymentResult = await processPayment({
         bookingId,
         movieId,
         showId,
-        seats,
+        seatNumbers,
         paymentMethod,
         paymentMethodId: derivedPaymentMethodId,
         currency,
       });
 
-      console.log("[PaymentPage] payment succeeded", paymentResult);
-
-      await updateBookingStatus(bookingId, {
-        status: "CONFIRMED",
-        paymentStatus: paymentResult.paymentStatus || "SUCCESS",
-        paymentId: paymentResult.paymentId,
-        amount: paymentResult.amount,
-        currency: paymentResult.currency,
-        provider: paymentResult.provider,
-        paymentMethod: paymentResult.paymentMethod,
-      });
-
-      console.log("[PaymentPage] booking status updated to CONFIRMED", {
-        bookingId,
-        paymentId: paymentResult.paymentId,
-      });
-
       setSuccessData(paymentResult);
     } catch (err) {
-      console.error("[PaymentPage] payment flow failed", {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        responseBody: err.response?.data,
-        message: err.message,
-      });
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
         err.message ||
         "Payment failed.";
 
-      try {
-        await updateBookingStatus(bookingId, {
-          status: "PAYMENT_FAILED",
-          paymentStatus: err.response?.data?.paymentStatus || "FAILED",
-          paymentId: err.response?.data?.paymentId,
-          failureReason: String(message),
-        });
-      } catch {
-        // Best-effort update; keep original payment error for UI.
-      }
-
       setError(String(message));
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const formatCountdown = () => {
+    if (secondsLeft == null) return null;
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
   };
 
   return (
@@ -180,11 +163,27 @@ export default function Payment() {
       <div className="payment-grid">
         <section className="admin-card">
           <h2>Booking summary</h2>
-          <p><strong>Reference:</strong> {booking.bookingReference || bookingId}</p>
-          <p><strong>Movie:</strong> {movie?.title || movieId}</p>
-          <p><strong>Theater:</strong> {show?.theater || "-"}</p>
-          <p><strong>Seats:</strong> {seats}</p>
-          <p><strong>Estimated amount:</strong> {summaryAmountText}</p>
+          <p>
+            <strong>Reference:</strong> {bookingId}
+          </p>
+          <p>
+            <strong>Movie:</strong> {movie?.title || movieId}
+          </p>
+          <p>
+            <strong>Theater:</strong> {show?.theater || "-"}
+          </p>
+          <p>
+            <strong>Seats:</strong> {seatNumbers.join(", ")}
+          </p>
+          <p>
+            <strong>Estimated amount:</strong> {summaryAmountText}
+          </p>
+          {holdExpiresAt && (
+            <p className={secondsLeft === 0 ? "form-error" : "admin-hint"}>
+              <strong>Hold time left:</strong> {formatCountdown()}
+              {secondsLeft === 0 ? " — hold expired" : ""}
+            </p>
+          )}
         </section>
 
         <section className="admin-card">
@@ -261,8 +260,9 @@ export default function Payment() {
                   </div>
 
                   <p className="admin-hint">
-                    Card details stay in the browser and are used to choose a Stripe test payment profile.
-                    Use 4242 4242 4242 4242 for success, 4000 0000 0000 0002 for a declined test.
+                    Card details stay in the browser and are used to choose a Stripe test payment
+                    profile. Use 4242 4242 4242 4242 for success, 4000 0000 0000 0002 for a declined
+                    test.
                   </p>
                 </>
               )}
@@ -275,11 +275,20 @@ export default function Payment() {
           ) : (
             <div>
               <p className="form-success">Payment successful and booking confirmed.</p>
-              <p><strong>Payment ID:</strong> {successData.paymentId}</p>
-              <p><strong>Status:</strong> {successData.paymentStatus}</p>
-              <p><strong>Amount:</strong> {successData.amount} {String(successData.currency || "").toUpperCase()}</p>
+              <p>
+                <strong>Payment ID:</strong> {successData.paymentId}
+              </p>
+              <p>
+                <strong>Status:</strong> {successData.paymentStatus}
+              </p>
+              <p>
+                <strong>Amount:</strong> {successData.amount}{" "}
+                {String(successData.currency || "").toUpperCase()}
+              </p>
               <div style={{ marginTop: "1rem" }}>
-                <Link to="/" className="btn btn--primary">Back to movies</Link>
+                <Link to="/" className="btn btn--primary">
+                  Back to movies
+                </Link>
               </div>
             </div>
           )}
@@ -288,7 +297,9 @@ export default function Payment() {
 
       {!successData && (
         <p style={{ marginTop: "1rem" }}>
-          <Link to="/" className="btn btn--ghost">Cancel and return</Link>
+          <Link to="/" className="btn btn--ghost">
+            Cancel and return
+          </Link>
         </p>
       )}
     </main>

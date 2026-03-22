@@ -33,6 +33,13 @@ const bookingServiceCandidates = uniqueUrls([
   "http://booking-service:4003",
 ]);
 
+const internalServiceKey = () => process.env.INTERNAL_SERVICE_KEY || DEFAULT_INTERNAL_SERVICE_KEY;
+
+const internalHeaders = () => ({
+  "X-Service-Key": internalServiceKey(),
+  "Content-Type": "application/json",
+});
+
 const requestWithFallback = async (method, baseUrls, endpoint, config = {}) => {
   let notFoundError = null;
   let lastError = null;
@@ -59,9 +66,29 @@ const requestWithFallback = async (method, baseUrls, endpoint, config = {}) => {
   throw lastError;
 };
 
+const postShowInternal = async (path, data) =>
+  requestWithFallback("post", showServiceCandidates, path, {
+    data,
+    headers: internalHeaders(),
+  });
+
+const postBookingInternal = async (path, data) =>
+  requestWithFallback("post", bookingServiceCandidates, path, {
+    data,
+    headers: internalHeaders(),
+  });
+
 const toMinorUnits = (amount) => Math.round(Number(amount) * 100);
 
-const getSeatCount = (body) => Number(body.seatCount ?? body.seats);
+function normalizeSeatNumbers(body) {
+  if (Array.isArray(body.seatNumbers) && body.seatNumbers.length > 0) {
+    return [...new Set(body.seatNumbers.map((s) => String(s).trim().toUpperCase()).filter(Boolean))];
+  }
+  if (Array.isArray(body.seats) && body.seats.length > 0 && typeof body.seats[0] === "string") {
+    return [...new Set(body.seats.map((s) => String(s).trim().toUpperCase()).filter(Boolean))];
+  }
+  return [];
+}
 
 const getTicketPrice = (movie) => Number(movie.ticketPrice ?? movie.pricePerSeat ?? movie.price ?? 0);
 
@@ -78,86 +105,44 @@ const getShow = async (showId) => {
   return response.data;
 };
 
-const getSeatInfo = async (showId) => {
-  const response = await requestWithFallback("get", showServiceCandidates, `/shows/${showId}/seats`);
-  return response.data;
-};
-
-const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
-  await requestWithFallback("put", showServiceCandidates, `/shows/${showId}`, {
-    data: {
-      availableSeats,
-      reservedSeats,
-    },
-    headers: { "X-Service-Key": process.env.INTERNAL_SERVICE_KEY || DEFAULT_INTERNAL_SERVICE_KEY },
+const verifyHeldSeatsWithShowService = async ({ userId, showId, seatNumbers }) => {
+  await postShowInternal("/internal/seats/verify-held", {
+    userId,
+    showId,
+    seatNumbers,
   });
 };
 
-const createConfirmedBooking = async ({
+const confirmBookedSeatsWithShowService = async ({ userId, showId, seatNumbers }) => {
+  await postShowInternal("/internal/seats/confirm-booked", {
+    userId,
+    showId,
+    seatNumbers,
+  });
+};
+
+const createConfirmedBookingRecord = async ({
   bookingId,
   userId,
   movieId,
   showId,
-  seatCount,
+  seatNumbers,
   paymentData,
-}) => {
-  return requestWithFallback("post", bookingServiceCandidates, "/bookings", {
-    data: {
-      bookingId,
-      userId,
-      movieId,
-      showId,
-      seats: seatCount,
-      status: "CONFIRMED",
-      paymentStatus: paymentData.paymentStatus || "SUCCESS",
-      paymentId: paymentData.paymentId,
-      amount: paymentData.amount,
-      currency: paymentData.currency,
-      provider: paymentData.provider,
-      paymentMethod: paymentData.paymentMethod,
-    },
+}) =>
+  postBookingInternal("/bookings", {
+    bookingId,
+    userId,
+    movieId,
+    showId,
+    seats: seatNumbers,
+    status: "CONFIRMED",
+    paymentStatus: paymentData.paymentStatus || "SUCCESS",
+    paymentId: paymentData.paymentId,
+    amount: paymentData.amount,
+    currency: paymentData.currency,
+    provider: paymentData.provider,
+    paymentMethod: paymentData.paymentMethod,
   });
-};
-
-const confirmExistingBooking = async (bookingId, paymentData) => {
-  return requestWithFallback("patch", bookingServiceCandidates, `/bookings/${bookingId}/status`, {
-    data: {
-      status: "CONFIRMED",
-      paymentStatus: paymentData.paymentStatus || "SUCCESS",
-      paymentId: paymentData.paymentId,
-      amount: paymentData.amount,
-      currency: paymentData.currency,
-      provider: paymentData.provider,
-      paymentMethod: paymentData.paymentMethod,
-    },
-  });
-};
-
-const ensureBookingRecordedAfterPayment = async ({
-  bookingId,
-  userId,
-  movieId,
-  showId,
-  seatCount,
-  paymentData,
-}) => {
-  try {
-    await confirmExistingBooking(bookingId, paymentData);
-  } catch (error) {
-    if (error.response?.status !== 404) {
-      throw error;
-    }
-
-    await createConfirmedBooking({
-      bookingId,
-      userId,
-      movieId,
-      showId,
-      seatCount,
-      paymentData,
-    });
-  }
-};
 
 const mapStripeStatus = (status) => {
   if (status === "succeeded") return "SUCCESS";
@@ -166,8 +151,18 @@ const mapStripeStatus = (status) => {
   return "PENDING";
 };
 
+async function refundStripePaymentIntent(paymentIntentId) {
+  if (!stripe || !paymentIntentId) return;
+  try {
+    await stripe.refunds.create({ payment_intent: paymentIntentId });
+  } catch (refundErr) {
+    console.error("[PaymentService] Stripe refund after failed confirm failed", refundErr.message);
+  }
+}
+
 const processPayment = async (req, res) => {
-  const seatCount = getSeatCount(req.body);
+  const seatNumbers = normalizeSeatNumbers(req.body);
+  const seatCount = seatNumbers.length;
   const currency = String(req.body.currency || STRIPE_CURRENCY).toLowerCase();
 
   console.log("[PaymentService][ProcessPayment] request received", {
@@ -175,37 +170,44 @@ const processPayment = async (req, res) => {
     userId: req.body.userId,
     movieId: req.body.movieId,
     showId: req.body.showId,
-    seats: seatCount,
+    seatNumbers,
     paymentMethod: req.body.paymentMethod,
     currency,
   });
 
-  if (!req.body.bookingId || !req.body.userId || !req.body.movieId || !req.body.showId || !Number.isInteger(seatCount) || seatCount < 1) {
+  if (
+    !req.body.bookingId ||
+    !req.body.userId ||
+    !req.body.movieId ||
+    !req.body.showId ||
+    seatCount < 1
+  ) {
     return res.status(400).json({
-      message: "bookingId, userId, movieId, showId and a positive seats value are required",
+      message:
+        "bookingId, userId, movieId, showId and seatNumbers (non-empty array) are required",
     });
   }
 
   try {
-    const [movie, show, seatInfo] = await Promise.all([
+    await verifyHeldSeatsWithShowService({
+      userId: req.body.userId,
+      showId: req.body.showId,
+      seatNumbers,
+    });
+
+    const [movie, show] = await Promise.all([
       getMovie(req.body.movieId),
       getShow(req.body.showId),
-      getSeatInfo(req.body.showId),
     ]);
-
-    console.log("[PaymentService][ProcessPayment] dependencies fetched", {
-      movieId: movie?._id || req.body.movieId,
-      showId: show?._id || req.body.showId,
-      availableSeats: seatInfo?.availableSeats,
-      reservedSeats: seatInfo?.reservedSeats,
-    });
 
     if (String(show.movieId) !== String(req.body.movieId)) {
       return res.status(400).json({ message: "Show does not belong to the specified movie" });
     }
 
-    if (seatInfo.availableSeats < seatCount) {
-      return res.status(400).json({ message: "Not enough seats available for this show" });
+    if (show.status && show.status !== "ACTIVE") {
+      return res.status(409).json({
+        message: `Show is not open for payment (status: ${show.status})`,
+      });
     }
 
     const amount = getTicketPrice(movie) * seatCount;
@@ -218,7 +220,8 @@ const processPayment = async (req, res) => {
     if (!stripe) {
       paymentStatus = "SUCCESS";
     } else {
-      const paymentMethodId = req.body.paymentMethodId || (process.env.NODE_ENV !== "production" ? "pm_card_visa" : undefined);
+      const paymentMethodId =
+        req.body.paymentMethodId || (process.env.NODE_ENV !== "production" ? "pm_card_visa" : undefined);
       const paymentIntentPayload = {
         amount: toMinorUnits(amount),
         currency,
@@ -231,7 +234,7 @@ const processPayment = async (req, res) => {
           userId: req.body.userId,
           movieId: req.body.movieId,
           showId: req.body.showId,
-          seats: String(seatCount),
+          seats: seatNumbers.join(","),
         },
       };
 
@@ -253,30 +256,40 @@ const processPayment = async (req, res) => {
       });
     }
 
+    const paymentProjection = {
+      paymentStatus,
+      paymentId: stripePaymentIntentId || `mock_${req.body.bookingId}`,
+      amount,
+      currency,
+      provider: stripe ? "stripe" : "mock",
+      paymentMethod,
+    };
+
     if (paymentStatus === "SUCCESS") {
-      const paymentProjection = {
-        paymentStatus,
-        paymentId: stripePaymentIntentId,
-        amount,
-        currency,
-        provider: stripe ? "stripe" : "mock",
-        paymentMethod,
-      };
+      try {
+        await confirmBookedSeatsWithShowService({
+          userId: req.body.userId,
+          showId: req.body.showId,
+          seatNumbers,
+        });
+      } catch (confirmErr) {
+        await refundStripePaymentIntent(stripePaymentIntentId);
+        throw confirmErr;
+      }
 
-      await ensureBookingRecordedAfterPayment({
-        bookingId: req.body.bookingId,
-        userId: req.body.userId,
-        movieId: req.body.movieId,
-        showId: req.body.showId,
-        seatCount,
-        paymentData: paymentProjection,
-      });
-
-      await updateShowSeats(
-        req.body.showId,
-        seatInfo.availableSeats - seatCount,
-        seatInfo.reservedSeats + seatCount
-      );
+      try {
+        await createConfirmedBookingRecord({
+          bookingId: req.body.bookingId,
+          userId: req.body.userId,
+          movieId: req.body.movieId,
+          showId: req.body.showId,
+          seatNumbers,
+          paymentData: paymentProjection,
+        });
+      } catch (bookingErr) {
+        console.error("[PaymentService] Booking record failed after seat confirm", bookingErr.message);
+        throw bookingErr;
+      }
     }
 
     const payment = await Payment.create({
@@ -285,6 +298,7 @@ const processPayment = async (req, res) => {
       movieId: req.body.movieId,
       showId: req.body.showId,
       seats: seatCount,
+      seatNumbers,
       amount,
       currency,
       paymentMethod,
@@ -323,6 +337,7 @@ const processPayment = async (req, res) => {
       paymentMethod: payment.paymentMethod,
       provider: payment.provider,
       stripePaymentIntentId: payment.stripePaymentIntentId,
+      seatNumbers: payment.seatNumbers,
     });
   } catch (error) {
     console.error("[PaymentService][ProcessPayment] failed", {
@@ -333,7 +348,8 @@ const processPayment = async (req, res) => {
       upstreamBody: error.response?.data,
     });
     if (error.response) {
-      return res.status(error.response.status).json({
+      const st = error.response.status;
+      return res.status(typeof st === "number" && st >= 400 ? st : 502).json({
         message: "Failed to process payment",
         error: error.response?.data?.message || error.message,
         upstream: error.response?.data,

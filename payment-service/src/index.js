@@ -1,4 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+// Repo root .env (PAYMENT_MONGO_URI) then service-local .env overrides
+require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");

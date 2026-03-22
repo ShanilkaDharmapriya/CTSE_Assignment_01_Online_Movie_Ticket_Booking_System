@@ -9,6 +9,8 @@ const movieRoutes   = require("../routes/movieRoutes");
 const showRoutes    = require("../routes/showRoutes");
 const bookingRoutes = require("../routes/bookingRoutes");
 const paymentRoutes = require("../routes/paymentRoutes");
+const seatRoutes = require("../routes/seatRoutes");
+const theaterRoutes = require("../routes/theaterRoutes");
 
 const app = express();
 
@@ -20,9 +22,11 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Mount service routes
 app.use("/auth",     authRoutes);
 app.use("/movies",   movieRoutes);
+app.use("/theaters", theaterRoutes);
 app.use("/shows",    showRoutes);
 app.use("/bookings", bookingRoutes);
 app.use("/payments", paymentRoutes);
+app.use("/seats", seatRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
