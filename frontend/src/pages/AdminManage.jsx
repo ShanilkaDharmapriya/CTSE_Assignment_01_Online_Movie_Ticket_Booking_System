@@ -10,6 +10,7 @@ import {
   updateMovieFormData,
   updateShow,
 } from "../services/api.js";
+import { usePopup } from "../context/PopupContext.jsx";
 
 const toDateInput = (value) => {
   if (!value) return "";
@@ -28,6 +29,7 @@ const asList = (value) => (Array.isArray(value) ? value : []);
 const posterUrlForMovie = (movieId) => `${API_BASE_URL}/movies/${movieId}/poster`;
 
 export default function AdminManage() {
+  const { confirm, notify } = usePopup();
   const [activeSection, setActiveSection] = useState("all");
   const [movies, setMovies] = useState([]);
   const [shows, setShows] = useState([]);
@@ -127,6 +129,7 @@ export default function AdminManage() {
       await updateMovieFormData(editingMovieId, fd);
       setEditingMovieId("");
       setMessage("Movie updated successfully.");
+      notify("Movie updated successfully.", "success");
       await loadData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to update movie.";
@@ -135,7 +138,13 @@ export default function AdminManage() {
   };
 
   const removeMovie = async (movieId) => {
-    const ok = window.confirm("Delete this movie? This cannot be undone.");
+      const ok = await confirm({
+        title: "Delete movie",
+        message: "Do you want to delete this movie? This action cannot be undone.",
+        confirmText: "Delete",
+        cancelText: "Keep",
+        intent: "danger",
+      });
     if (!ok) return;
 
     setMessage("");
@@ -143,6 +152,7 @@ export default function AdminManage() {
     try {
       await deleteMovieById(movieId);
       setMessage("Movie deleted successfully.");
+      notify("Movie deleted successfully.", "success");
       await loadData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to delete movie.";
@@ -174,6 +184,7 @@ export default function AdminManage() {
       });
       setEditingShowId("");
       setMessage("Show updated successfully.");
+      notify("Show updated successfully.", "success");
       await loadData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to update show.";
@@ -182,7 +193,13 @@ export default function AdminManage() {
   };
 
   const removeShow = async (showId) => {
-    const ok = window.confirm("Delete this show?");
+      const ok = await confirm({
+        title: "Delete show",
+        message: "Do you want to delete this show?",
+        confirmText: "Delete",
+        cancelText: "Keep",
+        intent: "danger",
+      });
     if (!ok) return;
 
     setMessage("");
@@ -190,6 +207,7 @@ export default function AdminManage() {
     try {
       await deleteShowById(showId);
       setMessage("Show deleted successfully.");
+      notify("Show deleted successfully.", "success");
       await loadData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to delete show.";

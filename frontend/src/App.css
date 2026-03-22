@@ -92,6 +92,16 @@
   background: var(--bg-elevated);
 }
 
+.btn--danger {
+  background: #b91c1c;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn--danger:hover {
+  filter: brightness(1.08);
+}
+
 .btn--block {
   width: 100%;
 }
@@ -436,6 +446,68 @@
   color: var(--text-muted);
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+/* --- Popup system --- */
+.popup-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 140;
+  min-width: 240px;
+  max-width: min(92vw, 420px);
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--bg-card);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.popup-toast--success {
+  border-color: rgba(125, 211, 168, 0.5);
+  background: rgba(125, 211, 168, 0.14);
+}
+
+.popup-toast--error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.popup-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(6, 8, 12, 0.62);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.popup-modal {
+  width: min(92vw, 460px);
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  padding: 1.15rem;
+}
+
+.popup-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.popup-modal p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.popup-modal__actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
 }
 
 .admin-row-actions {

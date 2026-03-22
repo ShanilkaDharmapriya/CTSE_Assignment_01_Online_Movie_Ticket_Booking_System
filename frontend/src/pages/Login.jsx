@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { usePopup } from "../context/PopupContext.jsx";
 import { loginRequest } from "../services/api.js";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isAdmin } = useAuth();
+  const { notify } = usePopup();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -49,7 +51,7 @@ export default function Login() {
         return;
       }
       login(payload.token, payload.user);
-      window.alert(`Welcome back, ${payload.user.name}!`);
+      notify(`Welcome back, ${payload.user.name}!`, "success");
       // Redirect is handled by the useEffect above once isAuthenticated flips to true
     } catch (err) {
       // Auth-service: { error: { message } }; gateway: { error: { details } }

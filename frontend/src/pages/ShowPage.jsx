@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { usePopup } from "../context/PopupContext.jsx";
 import { createBooking, fetchMovieById, fetchShowsForMovie } from "../services/api.js";
 
 function formatShowWhen(dateVal, showTime) {
@@ -22,6 +23,7 @@ export default function ShowPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+  const { notify } = usePopup();
 
   const [movie, setMovie] = useState(null);
   const [shows, setShows] = useState([]);
@@ -112,7 +114,7 @@ export default function ShowPage() {
         err.message ||
         "Booking failed.";
       setBookingError(String(msg));
-      window.alert(`Booking failed: ${msg}`);
+      notify(`Booking failed: ${msg}`, "error", 3600);
     } finally {
       setBookingLoading(false);
     }

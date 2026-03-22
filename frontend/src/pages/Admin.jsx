@@ -4,6 +4,7 @@ import {
   createShow,
   fetchMovies,
 } from "../services/api.js";
+import { usePopup } from "../context/PopupContext.jsx";
 
 /**
  * Admin dashboard: add movies (multipart) and showtimes.
@@ -11,6 +12,7 @@ import {
  * where the assignment only listed title, description, genre, duration, price.
  */
 export default function Admin() {
+  const { notify } = usePopup();
   const [movies, setMovies] = useState([]);
   const [loadError, setLoadError] = useState("");
 
@@ -73,7 +75,7 @@ export default function Admin() {
       if (posterFile) fd.append("poster", posterFile);
 
       await createMovieFormData(fd);
-      window.alert("Movie created successfully.");
+      notify("Movie created successfully.", "success");
       setTitle("");
       setDescription("");
       setGenre("");
@@ -94,7 +96,7 @@ export default function Admin() {
         err.message ||
         "Failed to create movie.";
       setMovieMsg(String(msg));
-      window.alert(`Error: ${msg}`);
+      notify(`Error: ${msg}`, "error", 3600);
     } finally {
       setMovieLoading(false);
     }
@@ -116,7 +118,7 @@ export default function Admin() {
 
       console.log("[Admin][CreateShow] request payload", payload);
       await createShow(payload);
-      window.alert("Show created successfully.");
+      notify("Show created successfully.", "success");
       setTheater("");
       setShowTime("19:00");
     } catch (err) {
@@ -132,7 +134,7 @@ export default function Admin() {
         err.message ||
         "Failed to create show.";
       setShowMsg(String(msg));
-      window.alert(`Error: ${msg}`);
+      notify(`Error: ${msg}`, "error", 3600);
     } finally {
       setShowLoading(false);
     }
