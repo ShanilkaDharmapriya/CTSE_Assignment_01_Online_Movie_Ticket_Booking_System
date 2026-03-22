@@ -1,11 +1,7 @@
 const { v4: uuidv4 } = require("uuid");
-const {
-  addBooking,
-  getAllBookings,
-  getBookingById,
-  updateBookingById,
-} = require("../models/bookingStore");
+const Booking = require("../models/Booking");
 const { getMovieById, getShowById } = require("./externalServices");
+const { finalizeSeatsBookedOnShowService } = require("./showIntegration");
 
 function normalizeSeatList(seats) {
   if (!Array.isArray(seats)) return [];
@@ -48,94 +44,149 @@ function validateConfirmedBookingPayload(payload) {
   };
 }
 
+function extractSnapshot(movie, show) {
+  const movieTitle = movie?.title ? String(movie.title) : "";
+  let theaterName = "";
+  if (show?.theaterId && typeof show.theaterId === "object" && show.theaterId.name) {
+    theaterName = String(show.theaterId.name);
+  }
+  const showStartTime = show?.startTime ? new Date(show.startTime) : null;
+  return { movieTitle, theaterName, showStartTime };
+}
+
+/**
+ * Source of truth: creates booking then instructs Show Service to mark seats BOOKED + bookedBy.
+ * Idempotent on bookingId for payment retries.
+ */
 async function createBooking(payload) {
-  const {
-    userId,
-    movieId,
-    showId,
-    seats,
-    bookingId: incomingBookingId,
-    status,
-    paymentId,
-  } = validateConfirmedBookingPayload(payload);
+  const validated = validateConfirmedBookingPayload(payload);
+  const bookingId = validated.bookingId || uuidv4();
 
-  try {
-    await getMovieById(movieId);
-  } catch {
-    const movieError = new Error("Movie not found");
-    movieError.statusCode = 400;
-    throw movieError;
+  const existing = await Booking.findOne({ bookingId }).lean().exec();
+  if (existing && existing.status === "CONFIRMED") {
+    const samePayload =
+      String(existing.showId) === String(validated.showId) &&
+      String(existing.userId) === String(validated.userId) &&
+      JSON.stringify([...existing.seats].map(String).sort()) ===
+        JSON.stringify([...validated.seats].sort());
+    if (!samePayload) {
+      const conflict = new Error("bookingId already exists with different booking details");
+      conflict.statusCode = 409;
+      throw conflict;
+    }
+    await finalizeSeatsBookedOnShowService({
+      showId: validated.showId,
+      userId: validated.userId,
+      seatNumbers: validated.seats,
+    });
+    return { ...existing, bookingReference: existing.bookingId };
   }
 
-  try {
-    await getShowById(showId);
-  } catch {
-    const showError = new Error("Show not found");
-    showError.statusCode = 400;
-    throw showError;
-  }
-
-  const bookingId = incomingBookingId || uuidv4();
-
-  const createdBooking = addBooking({
-    bookingId,
-    bookingReference: bookingId,
-    userId,
-    movieId,
-    showId,
-    seats,
-    status,
-    paymentStatus: payload?.paymentStatus ? String(payload.paymentStatus).toUpperCase() : "SUCCESS",
-    paymentId,
-    amount: payload?.amount !== undefined ? Number(payload.amount) : undefined,
-    currency: payload?.currency ? String(payload.currency).toLowerCase() : undefined,
-    provider: payload?.provider,
-    paymentMethod: payload?.paymentMethod,
-    createdAt: new Date().toISOString(),
-    confirmedAt: new Date().toISOString(),
+  const movie = await getMovieById(validated.movieId).catch(() => {
+    const e = new Error("Movie not found");
+    e.statusCode = 400;
+    throw e;
   });
 
-  return createdBooking;
-}
+  const show = await getShowById(validated.showId).catch(() => {
+    const e = new Error("Show not found");
+    e.statusCode = 400;
+    throw e;
+  });
+  const { movieTitle, theaterName, showStartTime } = extractSnapshot(movie, show);
 
-function getBookings(userId) {
-  const allBookings = getAllBookings();
-  if (!userId) {
-    return allBookings;
+  let doc;
+  try {
+    doc = await Booking.create({
+      bookingId,
+      userId: validated.userId,
+      movieId: validated.movieId,
+      showId: validated.showId,
+      seats: validated.seats,
+      paymentId: validated.paymentId,
+      status: "CONFIRMED",
+      movieTitle,
+      theaterName,
+      showStartTime,
+      paymentStatus: payload?.paymentStatus ? String(payload.paymentStatus).toUpperCase() : "SUCCESS",
+      amount: payload?.amount !== undefined ? Number(payload.amount) : undefined,
+      currency: payload?.currency ? String(payload.currency).toLowerCase() : undefined,
+      provider: payload?.provider,
+      paymentMethod: payload?.paymentMethod,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      const again = await Booking.findOne({ bookingId }).lean().exec();
+      if (again) return { ...again, bookingReference: again.bookingId };
+    }
+    throw err;
   }
 
-  return allBookings.filter((booking) => String(booking.userId) === String(userId));
+  try {
+    await finalizeSeatsBookedOnShowService({
+      showId: validated.showId,
+      userId: validated.userId,
+      seatNumbers: validated.seats,
+    });
+  } catch (finalizeErr) {
+    await Booking.deleteOne({ _id: doc._id }).exec();
+    throw finalizeErr;
+  }
+
+  const out = doc.toObject();
+  out.bookingReference = out.bookingId;
+  return out;
 }
 
-function getBooking(bookingId) {
-  return getBookingById(bookingId);
+async function listBookingsForPrincipal({ role, jwtUserId, queryUserId }) {
+  const isAdmin = String(role || "").toLowerCase() === "admin";
+
+  if (!isAdmin) {
+    return Booking.find({ userId: String(jwtUserId) })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+  }
+
+  const filter = {};
+  if (queryUserId !== undefined && queryUserId !== null && String(queryUserId).trim() !== "") {
+    filter.userId = String(queryUserId).trim();
+  }
+
+  return Booking.find(filter).sort({ createdAt: -1 }).lean().exec();
+}
+
+async function getBookingByBookingId(bookingId) {
+  return Booking.findOne({ bookingId: String(bookingId) }).lean().exec();
 }
 
 async function cancelBooking(bookingId) {
-  const existingBooking = getBookingById(bookingId);
+  const updated = await Booking.findOneAndUpdate(
+    { bookingId: String(bookingId), status: { $ne: "CANCELLED" } },
+    { $set: { status: "CANCELLED" } },
+    { new: true }
+  )
+    .lean()
+    .exec();
 
-  if (!existingBooking) {
-    const notFoundError = new Error("Booking not found");
-    notFoundError.statusCode = 404;
-    throw notFoundError;
-  }
-
-  if (existingBooking.status === "CANCELLED") {
+  if (!updated) {
+    const exists = await Booking.findOne({ bookingId: String(bookingId) }).lean().exec();
+    if (!exists) {
+      const notFoundError = new Error("Booking not found");
+      notFoundError.statusCode = 404;
+      throw notFoundError;
+    }
     const alreadyCancelledError = new Error("Booking is already cancelled");
     alreadyCancelledError.statusCode = 400;
     throw alreadyCancelledError;
   }
 
-  return updateBookingById(bookingId, {
-    status: "CANCELLED",
-    cancelledAt: new Date().toISOString(),
-  });
+  return updated;
 }
 
 async function updateBookingStatus(bookingId, payload) {
-  const existingBooking = getBookingById(bookingId);
-
-  if (!existingBooking) {
+  const existing = await Booking.findOne({ bookingId: String(bookingId) }).exec();
+  if (!existing) {
     const notFoundError = new Error("Booking not found");
     notFoundError.statusCode = 404;
     throw notFoundError;
@@ -150,38 +201,25 @@ async function updateBookingStatus(bookingId, payload) {
     throw validationError;
   }
 
-  const updateData = {
-    status: nextStatus,
-    updatedAt: new Date().toISOString(),
-  };
+  existing.status = nextStatus;
+  if (payload.paymentId) existing.paymentId = payload.paymentId;
+  if (payload.paymentStatus) existing.paymentStatus = String(payload.paymentStatus).toUpperCase();
+  if (payload.failureReason) existing.failureReason = payload.failureReason;
+  if (payload.amount !== undefined) existing.amount = Number(payload.amount);
+  if (payload.currency) existing.currency = String(payload.currency).toLowerCase();
+  if (payload.provider) existing.provider = payload.provider;
+  if (payload.paymentMethod) existing.paymentMethod = payload.paymentMethod;
 
-  if (payload.paymentId) updateData.paymentId = payload.paymentId;
-  if (payload.paymentStatus) updateData.paymentStatus = String(payload.paymentStatus).toUpperCase();
-  if (payload.failureReason) updateData.failureReason = payload.failureReason;
-  if (payload.amount !== undefined) updateData.amount = Number(payload.amount);
-  if (payload.currency) updateData.currency = String(payload.currency).toLowerCase();
-  if (payload.provider) updateData.provider = payload.provider;
-  if (payload.paymentMethod) updateData.paymentMethod = payload.paymentMethod;
-
-  if (nextStatus === "CONFIRMED") {
-    updateData.confirmedAt = new Date().toISOString();
-  }
-
-  if (nextStatus === "PAYMENT_FAILED") {
-    updateData.failedAt = new Date().toISOString();
-  }
-
-  if (nextStatus === "CANCELLED") {
-    updateData.cancelledAt = new Date().toISOString();
-  }
-
-  return updateBookingById(bookingId, updateData);
+  await existing.save();
+  const out = existing.toObject();
+  out.bookingReference = out.bookingId;
+  return out;
 }
 
 module.exports = {
   createBooking,
-  getBookings,
-  getBooking,
+  listBookingsForPrincipal,
+  getBookingByBookingId,
   cancelBooking,
   updateBookingStatus,
 };

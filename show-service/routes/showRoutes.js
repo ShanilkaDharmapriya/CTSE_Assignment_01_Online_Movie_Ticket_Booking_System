@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { requireAdmin, requireAdminOrService } = require("../middleware/authMiddleware");
+const { requireAdmin, requireAdminOrService, optionalAuth } = require("../middleware/authMiddleware");
 const {
   getAllShows,
   getAllShowsAdmin,
@@ -17,7 +17,7 @@ router.get("/", getAllShows);
 
 router.post("/", requireAdmin, createShow);
 
-router.get("/:showId/seats", getSeatInfo);
+router.get("/:showId/seats", optionalAuth, getSeatInfo);
 
 router.get("/:showId", getShowById);
 

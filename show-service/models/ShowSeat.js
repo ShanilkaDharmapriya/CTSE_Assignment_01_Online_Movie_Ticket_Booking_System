@@ -25,6 +25,11 @@ const showSeatSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    /** Set when status is BOOKED — used for isMine in public API only; never expose other users’ ids. */
+    bookedBy: {
+      type: String,
+      default: null,
+    },
     expiresAt: {
       type: Date,
       default: null,

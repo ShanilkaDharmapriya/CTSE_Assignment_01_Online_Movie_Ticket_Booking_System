@@ -22,7 +22,10 @@ function BookingTicket({ booking, movie }) {
   const [downloading, setDownloading] = useState(false);
 
   const ref = booking.bookingReference || booking.bookingId || booking._id || "N/A";
-  const movieTitle = movie?.title || booking.movieId || "Unknown Movie";
+  const movieTitle =
+    booking.movieTitle || movie?.title || booking.movieId || "Unknown Movie";
+  const showWhen = formatDateTime(booking.showStartTime);
+  const hallName = booking.theaterName || "—";
   const seats = Array.isArray(booking.seats)
     ? booking.seats.join(", ")
     : booking.seats ?? "-";
@@ -89,6 +92,14 @@ function BookingTicket({ booking, movie }) {
             <div className="ticket-detail-row">
               <span className="ticket-label">Reference</span>
               <span className="ticket-value">{ref}</span>
+            </div>
+            <div className="ticket-detail-row">
+              <span className="ticket-label">Show time</span>
+              <span className="ticket-value">{showWhen}</span>
+            </div>
+            <div className="ticket-detail-row">
+              <span className="ticket-label">Theater</span>
+              <span className="ticket-value">{hallName}</span>
             </div>
             <div className="ticket-detail-row">
               <span className="ticket-label">Seats</span>

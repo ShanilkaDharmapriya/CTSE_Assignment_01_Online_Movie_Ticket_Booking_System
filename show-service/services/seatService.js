@@ -33,11 +33,12 @@ async function insertShowSeatsBulk(showId, seatNumbers) {
 
   const bulk = seatNumbers.map((seatNumber) => ({
     insertOne: {
-      document: {
+        document: {
         showId,
         seatNumber,
         status: "AVAILABLE",
         heldBy: null,
+        bookedBy: null,
         expiresAt: null,
       },
     },
@@ -279,6 +280,15 @@ async function confirmSeatsBooked({ showId, userId, seatNumbers }) {
 
   const now = new Date();
   for (const seatNumber of normalized) {
+    const current = await ShowSeat.findOne({ showId, seatNumber }).exec();
+    if (
+      current &&
+      current.status === "BOOKED" &&
+      String(current.bookedBy || "") === String(userId)
+    ) {
+      continue;
+    }
+
     const updated = await ShowSeat.findOneAndUpdate(
       {
         showId,
@@ -290,6 +300,7 @@ async function confirmSeatsBooked({ showId, userId, seatNumbers }) {
       {
         $set: {
           status: "BOOKED",
+          bookedBy: String(userId),
           heldBy: null,
           expiresAt: null,
         },
@@ -331,7 +342,34 @@ async function syncShowAggregates(showId) {
   return { ...counts, reserved };
 }
 
-async function getSeatLayoutForShow(showId) {
+function shapeSeatForClient(seatDoc, viewerUserId) {
+  const viewer =
+    viewerUserId !== undefined && viewerUserId !== null && String(viewerUserId).trim() !== ""
+      ? String(viewerUserId).trim()
+      : null;
+  const heldBy = seatDoc.heldBy ? String(seatDoc.heldBy) : null;
+  const bookedBy = seatDoc.bookedBy ? String(seatDoc.bookedBy) : null;
+
+  let isMine = false;
+  if (viewer) {
+    if (seatDoc.status === "HELD" && heldBy === viewer) isMine = true;
+    if (seatDoc.status === "BOOKED" && bookedBy === viewer) isMine = true;
+  }
+
+  const expiresAt =
+    seatDoc.status === "HELD" && isMine && seatDoc.expiresAt
+      ? new Date(seatDoc.expiresAt).toISOString()
+      : null;
+
+  return {
+    seatNumber: seatDoc.seatNumber,
+    status: seatDoc.status,
+    isMine,
+    expiresAt,
+  };
+}
+
+async function getSeatLayoutForShow(showId, viewerUserId) {
   if (!mongoose.Types.ObjectId.isValid(showId)) {
     const err = new Error("Invalid showId");
     err.statusCode = 400;
@@ -358,12 +396,7 @@ async function getSeatLayoutForShow(showId) {
     startTime: show.startTime,
     endTime: show.endTime,
     status: show.status,
-    seats: seats.map((s) => ({
-      seatNumber: s.seatNumber,
-      status: s.status,
-      heldBy: s.heldBy || null,
-      expiresAt: s.expiresAt ? new Date(s.expiresAt).toISOString() : null,
-    })),
+    seats: seats.map((s) => shapeSeatForClient(s, viewerUserId)),
   };
 }
 
@@ -379,4 +412,5 @@ module.exports = {
   confirmSeatsBooked,
   syncShowAggregates,
   getSeatLayoutForShow,
+  shapeSeatForClient,
 };

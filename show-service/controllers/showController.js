@@ -139,7 +139,8 @@ const getShowById = async (req, res) => {
 
 const getSeatInfo = async (req, res) => {
   try {
-    const layout = await getSeatLayoutForShow(req.params.showId);
+    const viewerUserId = req.auth?.user?.id ?? req.auth?.user?._id ?? null;
+    const layout = await getSeatLayoutForShow(req.params.showId, viewerUserId);
     res.status(200).json(layout);
   } catch (error) {
     const status = error.statusCode || 500;

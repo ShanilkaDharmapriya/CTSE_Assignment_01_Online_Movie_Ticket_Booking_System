@@ -206,9 +206,7 @@ export async function fetchBookings(params = {}) {
 }
 
 export async function fetchMyBookings() {
-  const currentUser = getStoredUser();
-  const params = currentUser?.id ? { userId: currentUser.id } : {};
-  return fetchBookings(params);
+  return fetchBookings();
 }
 
 export async function fetchPayments(params = {}) {

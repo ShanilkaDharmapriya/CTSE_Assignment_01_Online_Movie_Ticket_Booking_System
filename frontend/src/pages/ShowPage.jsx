@@ -50,7 +50,7 @@ export default function ShowPage() {
   const { movieId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { notify } = usePopup();
 
   const [movie, setMovie] = useState(null);
@@ -64,8 +64,6 @@ export default function ShowPage() {
   const [layoutError, setLayoutError] = useState("");
   const [selectedSeats, setSelectedSeats] = useState(() => new Set());
   const [holdLoading, setHoldLoading] = useState(false);
-
-  const userId = user?.id;
 
   const loadLayout = useCallback(async (showId) => {
     setLayoutLoading(true);
@@ -264,13 +262,16 @@ export default function ShowPage() {
               <i className="seat-dot seat-dot--available" /> Available
             </span>
             <span>
-              <i className="seat-dot seat-dot--held" /> On hold
+              <i className="seat-dot seat-dot--held" /> Held (others)
             </span>
             <span>
-              <i className="seat-dot seat-dot--booked" /> Booked
+              <i className="seat-dot seat-dot--booked" /> Booked (others)
             </span>
             <span>
-              <i className="seat-dot seat-dot--selected" /> Your selection
+              <i className="seat-dot seat-dot--mine" /> Yours
+            </span>
+            <span>
+              <i className="seat-dot seat-dot--selected" /> Selected
             </span>
           </div>
 
@@ -286,12 +287,14 @@ export default function ShowPage() {
                     <span className="seat-row-label">{row}</span>
                     <div className="seat-row-cells">
                       {seats.map((seat) => {
-                        const isMineHeld =
-                          seat.status === "HELD" && String(seat.heldBy) === String(userId);
+                        const isMine = seat.isMine === true;
                         const isSelected = selectedSeats.has(seat.seatNumber);
                         let cls = "seat-cell";
-                        if (seat.status === "BOOKED") cls += " seat-cell--booked";
-                        else if (seat.status === "HELD") cls += isMineHeld ? " seat-cell--held-mine" : " seat-cell--held";
+                        if (seat.status === "AVAILABLE") cls += " seat-cell--available";
+                        else if (isMine && seat.status === "BOOKED") cls += " seat-cell--mine-booked";
+                        else if (isMine && seat.status === "HELD") cls += " seat-cell--mine-held";
+                        else if (seat.status === "HELD") cls += " seat-cell--held";
+                        else if (seat.status === "BOOKED") cls += " seat-cell--booked";
                         else cls += " seat-cell--available";
                         if (isSelected) cls += " seat-cell--selected";
 

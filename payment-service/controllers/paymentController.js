@@ -113,14 +113,6 @@ const verifyHeldSeatsWithShowService = async ({ userId, showId, seatNumbers }) =
   });
 };
 
-const confirmBookedSeatsWithShowService = async ({ userId, showId, seatNumbers }) => {
-  await postShowInternal("/internal/seats/confirm-booked", {
-    userId,
-    showId,
-    seatNumbers,
-  });
-};
-
 const createConfirmedBookingRecord = async ({
   bookingId,
   userId,
@@ -267,17 +259,6 @@ const processPayment = async (req, res) => {
 
     if (paymentStatus === "SUCCESS") {
       try {
-        await confirmBookedSeatsWithShowService({
-          userId: req.body.userId,
-          showId: req.body.showId,
-          seatNumbers,
-        });
-      } catch (confirmErr) {
-        await refundStripePaymentIntent(stripePaymentIntentId);
-        throw confirmErr;
-      }
-
-      try {
         await createConfirmedBookingRecord({
           bookingId: req.body.bookingId,
           userId: req.body.userId,
@@ -287,7 +268,8 @@ const processPayment = async (req, res) => {
           paymentData: paymentProjection,
         });
       } catch (bookingErr) {
-        console.error("[PaymentService] Booking record failed after seat confirm", bookingErr.message);
+        console.error("[PaymentService] Booking finalize failed (booking + seats)", bookingErr.message);
+        await refundStripePaymentIntent(stripePaymentIntentId);
         throw bookingErr;
       }
     }

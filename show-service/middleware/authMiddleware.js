@@ -81,9 +81,35 @@ const requireServiceKey = (req, res, next) => {
   return next();
 };
 
+/**
+ * If Authorization is present, validate JWT and attach req.auth; otherwise req.auth stays unset.
+ * Used for public endpoints that need user context when logged in (e.g. seat isMine).
+ */
+const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (!authHeader) {
+    return next();
+  }
+  try {
+    await validateBearerAndAttachUser(req);
+    return next();
+  } catch (error) {
+    if (error.response) {
+      return res
+        .status(error.response.status)
+        .json(error.response.data || { message: "Unauthorized" });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    return res.status(503).json({ message: "Auth service unavailable" });
+  }
+};
+
 module.exports = {
   requireAuth,
   requireAdmin,
   requireAdminOrService,
   requireServiceKey,
+  optionalAuth,
 };

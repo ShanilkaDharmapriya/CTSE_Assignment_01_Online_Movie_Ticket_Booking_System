@@ -38,10 +38,8 @@ const getAllBookings = async (req, res) => {
     const role = String(req.auth?.user?.role || "").toLowerCase();
     const authHeader = req.headers.authorization || req.headers.Authorization || "";
 
-    const requestParams = { ...req.query };
-    if (role !== "admin" && req.auth?.user?.id) {
-      requestParams.userId = req.auth.user.id;
-    }
+    const requestParams =
+      role === "admin" ? { ...req.query } : {};
 
     const response = await axios.get(`${BOOKING_SERVICE_URL}/bookings`, {
       params: requestParams,

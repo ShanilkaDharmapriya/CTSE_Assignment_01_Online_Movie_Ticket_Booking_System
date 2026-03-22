@@ -101,7 +101,10 @@ const deleteShow = async (req, res) => {
 // GET /shows/:showId/seats
 const getSeatInfo = async (req, res) => {
   try {
-    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${req.params.showId}/seats`);
+    const authHeader = req.headers.authorization || req.headers.Authorization || "";
+    const response = await axios.get(`${SHOW_SERVICE_URL}/shows/${req.params.showId}/seats`, {
+      headers: authHeader ? { Authorization: authHeader } : {},
+    });
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch seat info", error: error.message });

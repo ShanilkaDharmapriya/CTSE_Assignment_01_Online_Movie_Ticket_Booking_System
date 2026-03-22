@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
+const { connectToDatabase } = require("./config/db");
 const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerSpec = require("./config/swagger");
 
@@ -27,6 +28,13 @@ app.use((error, req, res, next) => {
   return res.status(statusCode).json({ message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Booking Service running on port ${PORT}`);
-});
+connectToDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Booking Service running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("booking-service: MongoDB connection failed:", err.message);
+    process.exit(1);
+  });
