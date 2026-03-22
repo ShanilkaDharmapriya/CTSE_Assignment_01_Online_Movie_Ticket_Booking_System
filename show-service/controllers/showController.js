@@ -2,6 +2,40 @@ const axios = require("axios");
 const Show = require("../models/Show");
 const { MOVIE_SERVICE_URL } = require("../config/config");
 
+const buildMovieServiceCandidates = () => {
+  const candidates = [MOVIE_SERVICE_URL, "http://localhost:4001", "http://movie-service:4001"];
+  return [...new Set(candidates.filter(Boolean).map((url) => String(url).replace(/\/+$/, "")))];
+};
+
+const validateMovieExists = async (movieId) => {
+  const candidates = buildMovieServiceCandidates();
+  let sawNotFound = false;
+
+  for (const baseUrl of candidates) {
+    try {
+      const response = await axios.get(`${baseUrl}/movies/${movieId}`, { timeout: 5000 });
+      if (response.data) {
+        return true;
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        sawNotFound = true;
+        continue;
+      }
+    }
+  }
+
+  if (sawNotFound) {
+    const err = new Error("Invalid movie ID - movie not found");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const err = new Error("Movie validation failed - movie-service unavailable");
+  err.statusCode = 503;
+  throw err;
+};
+
 // GET /shows
 const getAllShows = async (req, res) => {
   try {
@@ -51,15 +85,8 @@ const createShow = async (req, res) => {
   try {
     const { movieId, theater, date, showTime, availableSeats } = req.body;
 
-    // Validate movie exists
-    try {
-      const movieResponse = await axios.get(`${MOVIE_SERVICE_URL}/movies/${movieId}`);
-      if (!movieResponse.data) {
-        return res.status(400).json({ message: "Invalid movie ID — movie not found" });
-      }
-    } catch {
-      return res.status(400).json({ message: "Movie validation failed — movie-service unavailable" });
-    }
+    // Validate movie against both local and docker hostnames.
+    await validateMovieExists(movieId);
 
     const show = new Show({
       movieId,
@@ -73,7 +100,7 @@ const createShow = async (req, res) => {
     const savedShow = await show.save();
     res.status(201).json(savedShow);
   } catch (error) {
-    res.status(400).json({ message: "Failed to create show", error: error.message });
+    res.status(error.statusCode || 400).json({ message: "Failed to create show", error: error.message });
   }
 };
 

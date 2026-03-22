@@ -1,7 +1,9 @@
 const {
   createBooking,
   getBookings,
-  getBooking
+  getBooking,
+  cancelBooking,
+  updateBookingStatus
 } = require("../services/bookingService");
 
 async function createBookingHandler(req, res, next) {
@@ -29,8 +31,31 @@ function getBookingByIdHandler(req, res) {
   return res.status(200).json(bookingRecord);
 }
 
+async function cancelBookingHandler(req, res, next) {
+  try {
+    const cancelledBooking = await cancelBooking(req.params.bookingId);
+    return res.status(200).json({
+      message: "Booking cancelled successfully",
+      booking: cancelledBooking,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function updateBookingStatusHandler(req, res, next) {
+  try {
+    const updatedBooking = await updateBookingStatus(req.params.bookingId, req.body);
+    return res.status(200).json(updatedBooking);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   createBookingHandler,
   getAllBookingsHandler,
-  getBookingByIdHandler
+  getBookingByIdHandler,
+  cancelBookingHandler,
+  updateBookingStatusHandler
 };

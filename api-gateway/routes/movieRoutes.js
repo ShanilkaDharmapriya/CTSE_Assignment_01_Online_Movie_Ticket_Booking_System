@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 const { requireAuth, requireAdmin } = require("../middleware/authMiddleware");
 const {
   getAllMovies,
@@ -9,6 +10,8 @@ const {
   deleteMovie,
 } = require("../controllers/movieController");
 
+const upload = multer({ storage: multer.memoryStorage() });
+
 // GET  /movies                — list all movies
 router.get("/", getAllMovies);
 
@@ -16,10 +19,10 @@ router.get("/", getAllMovies);
 router.get("/:id", getMovieById);
 
 // POST /movies                — create movie
-router.post("/", requireAuth, requireAdmin, createMovie);
+router.post("/", requireAuth, requireAdmin, upload.single("poster"), createMovie);
 
 // PUT  /movies/:id            — update movie
-router.put("/:id", requireAuth, requireAdmin, updateMovie);
+router.put("/:id", requireAuth, requireAdmin, upload.single("poster"), updateMovie);
 
 // DELETE /movies/:id          — delete movie
 router.delete("/:id", requireAuth, requireAdmin, deleteMovie);

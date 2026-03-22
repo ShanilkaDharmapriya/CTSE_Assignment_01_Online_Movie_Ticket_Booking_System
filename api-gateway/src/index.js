@@ -4,6 +4,7 @@ const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
+const authRoutes    = require("../routes/authRoutes");
 const movieRoutes   = require("../routes/movieRoutes");
 const showRoutes    = require("../routes/showRoutes");
 const bookingRoutes = require("../routes/bookingRoutes");
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Mount service routes
+app.use("/auth",     authRoutes);
 app.use("/movies",   movieRoutes);
 app.use("/shows",    showRoutes);
 app.use("/bookings", bookingRoutes);

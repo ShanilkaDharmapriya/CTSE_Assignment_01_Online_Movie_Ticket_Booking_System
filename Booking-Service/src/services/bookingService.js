@@ -2,12 +2,12 @@ const { v4: uuidv4 } = require("uuid");
 const {
   addBooking,
   getAllBookings,
-  getBookingById
+  getBookingById,
+  updateBookingById
 } = require("../models/bookingStore");
 const {
   getMovieById,
-  getShowById,
-  createPayment
+  getShowById
 } = require("./externalServices");
 
 function convertToNumber(value) {
@@ -66,39 +66,19 @@ async function createBooking(payload) {
     throw seatError;
   }
 
-  // Create booking id and calculate payment amount.
+  // Create booking id and keep it pending until frontend completes payment.
   const bookingId = uuidv4();
-  const paymentAmount = convertToNumber(showDetails.price)
-    ? convertToNumber(showDetails.price) * seats
-    : seats;
 
-  // Process payment before saving booking.
-  try {
-    await createPayment({
-      bookingId,
-      userId,
-      movieId,
-      showId,
-      seats,
-      amount: paymentAmount,
-      currency: payload.currency || "usd",
-      paymentMethod: payload.paymentMethod || "stripe",
-      paymentMethodId: payload.paymentMethodId,
-    });
-  } catch (error) {
-    const paymentError = new Error("Payment failed");
-    paymentError.statusCode = 500;
-    throw paymentError;
-  }
-
-  // Save final booking record.
+  // Save pending booking record; payment outcome is applied via status update endpoint.
   const createdBooking = addBooking({
     bookingId,
+    bookingReference: bookingId,
     userId,
     movieId,
     showId,
     seats,
-    status: "CONFIRMED"
+    status: "PENDING_PAYMENT",
+    createdAt: new Date().toISOString(),
   });
 
   return createdBooking;
@@ -112,8 +92,77 @@ function getBooking(bookingId) {
   return getBookingById(bookingId);
 }
 
+async function cancelBooking(bookingId) {
+  const existingBooking = getBookingById(bookingId);
+
+  if (!existingBooking) {
+    const notFoundError = new Error("Booking not found");
+    notFoundError.statusCode = 404;
+    throw notFoundError;
+  }
+
+  if (existingBooking.status === "CANCELLED") {
+    const alreadyCancelledError = new Error("Booking is already cancelled");
+    alreadyCancelledError.statusCode = 400;
+    throw alreadyCancelledError;
+  }
+
+  return updateBookingById(bookingId, {
+    status: "CANCELLED",
+    cancelledAt: new Date().toISOString(),
+  });
+}
+
+async function updateBookingStatus(bookingId, payload) {
+  const existingBooking = getBookingById(bookingId);
+
+  if (!existingBooking) {
+    const notFoundError = new Error("Booking not found");
+    notFoundError.statusCode = 404;
+    throw notFoundError;
+  }
+
+  const nextStatus = String(payload?.status || "").toUpperCase();
+  const allowedStatuses = ["PENDING_PAYMENT", "CONFIRMED", "PAYMENT_FAILED", "CANCELLED"];
+
+  if (!allowedStatuses.includes(nextStatus)) {
+    const validationError = new Error("Invalid status value");
+    validationError.statusCode = 400;
+    throw validationError;
+  }
+
+  const updateData = {
+    status: nextStatus,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (payload.paymentId) updateData.paymentId = payload.paymentId;
+  if (payload.paymentStatus) updateData.paymentStatus = String(payload.paymentStatus).toUpperCase();
+  if (payload.failureReason) updateData.failureReason = payload.failureReason;
+  if (payload.amount !== undefined) updateData.amount = Number(payload.amount);
+  if (payload.currency) updateData.currency = String(payload.currency).toLowerCase();
+  if (payload.provider) updateData.provider = payload.provider;
+  if (payload.paymentMethod) updateData.paymentMethod = payload.paymentMethod;
+
+  if (nextStatus === "CONFIRMED") {
+    updateData.confirmedAt = new Date().toISOString();
+  }
+
+  if (nextStatus === "PAYMENT_FAILED") {
+    updateData.failedAt = new Date().toISOString();
+  }
+
+  if (nextStatus === "CANCELLED") {
+    updateData.cancelledAt = new Date().toISOString();
+  }
+
+  return updateBookingById(bookingId, updateData);
+}
+
 module.exports = {
   createBooking,
   getBookings,
-  getBooking
+  getBooking,
+  cancelBooking,
+  updateBookingStatus
 };
