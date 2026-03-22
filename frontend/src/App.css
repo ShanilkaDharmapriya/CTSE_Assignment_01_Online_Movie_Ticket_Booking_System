@@ -687,3 +687,169 @@
 .seat-cell:not(:disabled):hover {
   filter: brightness(1.08);
 }
+
+/* =============================================
+   Booking Ticket Cards
+   ============================================= */
+
+.bookings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 2rem;
+}
+
+.booking-ticket-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.booking-ticket-card {
+  display: flex;
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+/* Red accent strip on the left */
+.ticket-strip {
+  width: 6px;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dim) 100%);
+  flex-shrink: 0;
+}
+
+/* Main ticket info section */
+.ticket-body {
+  flex: 1;
+  padding: 1.25rem 1.1rem 1.25rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ticket-brand {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.ticket-status-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ticket-movie-title {
+  margin: 0;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticket-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.ticket-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.ticket-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ticket-value {
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+/* Perforated divider */
+.ticket-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  position: relative;
+  width: 22px;
+  flex-shrink: 0;
+}
+
+.ticket-notch {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-deep);
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.ticket-notch--top {
+  margin-top: -9px;
+}
+.ticket-notch--bottom {
+  margin-bottom: -9px;
+}
+
+.ticket-dashes {
+  flex: 1;
+  border-left: 2px dashed rgba(255, 255, 255, 0.12);
+  margin: 0 auto;
+  width: 0;
+}
+
+/* QR code section */
+.ticket-qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.1rem;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ticket-scan-label {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* Download button */
+.ticket-download-btn {
+  width: 100%;
+  max-width: 360px;
+  font-size: 0.9rem;
+}
+
