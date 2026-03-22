@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const BOOKING_SERVICE_URL = process.env.BOOKING_SERVICE_URL || "http://booking-service:4003";
+const { BOOKING_SERVICE_URL } = require("../config/config");
 
 const buildProxyErrorPayload = (fallbackMessage, error) => {
   const upstream = error.response?.data;

@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:4005";
+const { AUTH_SERVICE_URL } = require("../config/config");
 
 const normalizeUser = (user) => {
   if (!user) return user;

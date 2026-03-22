@@ -7,33 +7,20 @@ const {
   MOVIE_SERVICE_URL,
   SHOW_SERVICE_URL,
   BOOKING_SERVICE_URL,
+  INTERNAL_SERVICE_KEY,
 } = require("../config/config");
 
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
-const DEFAULT_INTERNAL_SERVICE_KEY = "ctse-internal-service-key-2026";
-
 const uniqueUrls = (urls) => [...new Set(urls.filter(Boolean).map((url) => String(url).replace(/\/+$/, "")))];
 
-const movieServiceCandidates = uniqueUrls([
-  MOVIE_SERVICE_URL,
-  "http://localhost:4001",
-  "http://movie-service:4001",
-]);
+const movieServiceCandidates = uniqueUrls([MOVIE_SERVICE_URL]);
 
-const showServiceCandidates = uniqueUrls([
-  SHOW_SERVICE_URL,
-  "http://localhost:4002",
-  "http://show-service:4002",
-]);
+const showServiceCandidates = uniqueUrls([SHOW_SERVICE_URL]);
 
-const bookingServiceCandidates = uniqueUrls([
-  BOOKING_SERVICE_URL,
-  "http://localhost:4003",
-  "http://booking-service:4003",
-]);
+const bookingServiceCandidates = uniqueUrls([BOOKING_SERVICE_URL]);
 
-const internalServiceKey = () => process.env.INTERNAL_SERVICE_KEY || DEFAULT_INTERNAL_SERVICE_KEY;
+const internalServiceKey = () => INTERNAL_SERVICE_KEY;
 
 const internalHeaders = () => ({
   "X-Service-Key": internalServiceKey(),

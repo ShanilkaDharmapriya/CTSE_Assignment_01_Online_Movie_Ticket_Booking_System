@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://auth-service:4005";
+const { AUTH_SERVICE_URL } = require("../config/config");
 
 // Validate incoming Bearer token via auth-service before forwarding protected requests.
 const requireAuth = async (req, res, next) => {

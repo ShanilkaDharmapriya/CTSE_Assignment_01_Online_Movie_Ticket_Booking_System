@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || "http://payment-service:4004";
+const { PAYMENT_SERVICE_URL } = require("../config/config");
 
 const buildProxyErrorPayload = (fallbackMessage, error) => {
   const upstream = error.response?.data;

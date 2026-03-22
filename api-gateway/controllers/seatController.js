@@ -1,6 +1,5 @@
 const axios = require("axios");
-
-const SHOW_SERVICE_URL = process.env.SHOW_SERVICE_URL || "http://show-service:4002";
+const { SHOW_SERVICE_URL } = require("../config/config");
 
 const holdSeats = async (req, res) => {
   try {

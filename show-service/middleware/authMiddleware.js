@@ -1,7 +1,5 @@
 const axios = require("axios");
-
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
-const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || "ctse-internal-service-key-2026";
+const { AUTH_SERVICE_URL, INTERNAL_SERVICE_KEY } = require("../config/config");
 
 async function validateBearerAndAttachUser(req) {
   const authHeader = req.headers.authorization || req.headers.Authorization;

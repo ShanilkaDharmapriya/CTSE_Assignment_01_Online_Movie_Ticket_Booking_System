@@ -1,40 +1,268 @@
 version: "3.8"
 
 services:
+  # ───────────────────────── MongoDB Containers ─────────────────────────
+
+  auth-db:
+    image: mongo:7
+    container_name: auth-db
+    ports:
+      - "27016:27017"
+    volumes:
+      - auth_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   movie-db:
-    image: mongo
+    image: mongo:7
     container_name: movie-db
     ports:
       - "27017:27017"
     volumes:
       - movie_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   show-db:
-    image: mongo
+    image: mongo:7
     container_name: show-db
     ports:
       - "27018:27017"
     volumes:
       - show_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   booking-db:
-    image: mongo
+    image: mongo:7
     container_name: booking-db
     ports:
       - "27019:27017"
     volumes:
       - booking_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   payment-db:
-    image: mongo
+    image: mongo:7
     container_name: payment-db
     ports:
       - "27020:27017"
     volumes:
       - payment_data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ───────────────────────── Backend Services ─────────────────────────
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://auth-db:27017/auth-service
+      JWT_SECRET: change_me_use_a_long_random_string_in_production
+      JWT_EXPIRES_IN: 1h
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: Admin@1234
+      ADMIN_NAME: System Admin
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  movie-service:
+    build: ./movie-service
+    container_name: movie-service
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      MONGO_URI: mongodb://movie-db:27017/movie-db
+      SHOW_SERVICE_URL: http://show-service:4002
+      AUTH_SERVICE_URL: http://auth-service:5000
+      INTERNAL_SERVICE_KEY: ctse-internal-service-key-2026
+    depends_on:
+      movie-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4001/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  show-service:
+    build: ./show-service
+    container_name: show-service
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      MONGO_URI: mongodb://show-db:27017/show-db
+      MOVIE_SERVICE_URL: http://movie-service:4001
+      AUTH_SERVICE_URL: http://auth-service:5000
+      INTERNAL_SERVICE_KEY: ctse-internal-service-key-2026
+    depends_on:
+      show-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4002/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  booking-service:
+    build: ./booking-service
+    container_name: booking-service
+    ports:
+      - "4003:4003"
+    environment:
+      PORT: 4003
+      MONGO_URI: mongodb://booking-db:27017/booking-db
+      MOVIE_SERVICE_URL: http://movie-service:4001
+      SHOW_SERVICE_URL: http://show-service:4002
+      PAYMENT_SERVICE_URL: http://payment-service:4004
+      AUTH_SERVICE_URL: http://auth-service:5000
+      INTERNAL_SERVICE_KEY: ctse-internal-service-key-2026
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4003/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "4004:4004"
+    environment:
+      PORT: 4004
+      MONGO_URI: mongodb://payment-db:27017/payment-db
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_CURRENCY: usd
+      MOVIE_SERVICE_URL: http://movie-service:4001
+      SHOW_SERVICE_URL: http://show-service:4002
+      BOOKING_SERVICE_URL: http://booking-service:4003
+      INTERNAL_SERVICE_KEY: ctse-internal-service-key-2026
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4004/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:5000
+      MOVIE_SERVICE_URL: http://movie-service:4001
+      SHOW_SERVICE_URL: http://show-service:4002
+      BOOKING_SERVICE_URL: http://booking-service:4003
+      PAYMENT_SERVICE_URL: http://payment-service:4004
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      movie-service:
+        condition: service_healthy
+      show-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:3000
+    container_name: frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - app-network
+
+# ───────────────────────── Network ─────────────────────────
+
+networks:
+  app-network:
+    driver: bridge
+
+# ───────────────────────── Volumes ─────────────────────────
 
 volumes:
+  auth_data:
   movie_data:
   show_data:
   booking_data:

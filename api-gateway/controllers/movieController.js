@@ -1,8 +1,6 @@
 const axios = require("axios");
 const FormData = require("form-data");
-
-const MOVIE_SERVICE_URL = process.env.MOVIE_SERVICE_URL || "http://movie-service:4001";
-const SHOW_SERVICE_URL  = process.env.SHOW_SERVICE_URL  || "http://show-service:4002";
+const { MOVIE_SERVICE_URL, SHOW_SERVICE_URL } = require("../config/config");
 
 const getAuthHeaders = (req, extraHeaders = {}) => {
   const authorization = req.headers.authorization || req.headers.Authorization;

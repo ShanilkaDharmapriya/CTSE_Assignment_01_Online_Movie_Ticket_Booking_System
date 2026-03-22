@@ -1,7 +1,7 @@
 const axios = require("axios");
 const mongoose = require("mongoose");
 const Movie = require("../models/Movie");
-const { SHOW_SERVICE_URL } = require("../config/config");
+const { SHOW_SERVICE_URL, INTERNAL_SERVICE_KEY } = require("../config/config");
 
 const ensureDbConnected = (res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -180,20 +180,17 @@ const deleteMovie = async (req, res) => {
 
     // Best-effort: cancel ACTIVE shows for this movie (requires internal key)
     try {
-      const key = process.env.INTERNAL_SERVICE_KEY;
-      if (key) {
-        const headers = { "X-Service-Key": key };
-        const showRes = await axios.get(
-          `${SHOW_SERVICE_URL}/internal/shows/list?movieId=${req.params.id}`,
-          { headers, timeout: 8000 }
-        );
-        const activeShows = Array.isArray(showRes.data) ? showRes.data : [];
-        await Promise.all(
-          activeShows.map((show) =>
-            axios.put(`${SHOW_SERVICE_URL}/shows/${show._id}`, { status: "CANCELLED" }, { headers, timeout: 8000 })
-          )
-        );
-      }
+      const headers = { "X-Service-Key": INTERNAL_SERVICE_KEY };
+      const showRes = await axios.get(
+        `${SHOW_SERVICE_URL}/internal/shows/list?movieId=${req.params.id}`,
+        { headers, timeout: 8000 }
+      );
+      const activeShows = Array.isArray(showRes.data) ? showRes.data : [];
+      await Promise.all(
+        activeShows.map((show) =>
+          axios.put(`${SHOW_SERVICE_URL}/shows/${show._id}`, { status: "CANCELLED" }, { headers, timeout: 8000 })
+        )
+      );
     } catch {
       // Non-fatal: log but don't fail the delete
     }

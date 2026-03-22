@@ -1,14 +1,12 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+const { MONGO_URI } = require("./config");
 
 async function connectToDatabase() {
-  const mongoUri = process.env.MONGODB_URI;
-  if (!mongoUri) {
-    throw new Error('MONGODB_URI is not configured');
+  if (!MONGO_URI) {
+    throw new Error("MONGO_URI is not configured");
   }
 
-  await mongoose.connect(mongoUri, {
-    dbName: process.env.MONGODB_DB_NAME || 'auth-service',
-  });
+  await mongoose.connect(MONGO_URI);
 }
 
 module.exports = {

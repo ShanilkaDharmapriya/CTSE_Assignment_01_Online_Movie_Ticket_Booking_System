@@ -14,7 +14,7 @@ const {
 const { cancelShowById } = require("../services/showLifecycle");
 
 const buildMovieServiceCandidates = () => {
-  const candidates = [MOVIE_SERVICE_URL, "http://localhost:4001", "http://movie-service:4001"];
+  const candidates = [MOVIE_SERVICE_URL];
   return [...new Set(candidates.filter(Boolean).map((url) => String(url).replace(/\/+$/, "")))];
 };
 

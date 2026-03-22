@@ -1,18 +1,18 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const userStore = require('../models/userStore');
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const userStore = require("../models/userStore");
+const { JWT_SECRET, JWT_EXPIRES_IN, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } = require("../config/config");
 
 const SALT_ROUNDS = 10;
 let seedAdminPromise = null;
 
 function getJwtOptions() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is not configured');
+  if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
   }
   return {
-    secret,
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    secret: JWT_SECRET,
+    expiresIn: JWT_EXPIRES_IN || "1h",
   };
 }
 
@@ -46,9 +46,9 @@ async function ensureSeedAdminUser() {
   if (seedAdminPromise) return seedAdminPromise;
 
   seedAdminPromise = (async () => {
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const adminName = process.env.ADMIN_NAME || 'System Admin';
+    const adminEmail = ADMIN_EMAIL;
+    const adminPassword = ADMIN_PASSWORD;
+    const adminName = ADMIN_NAME || "System Admin";
 
     if (!adminEmail || !adminPassword) {
       return;

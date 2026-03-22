@@ -33,5 +33,5 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "API Gateway is running" });
 });
 
-const PORT = process.env.PORT || 3000;
+const { PORT } = require("../config/config");
 app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));

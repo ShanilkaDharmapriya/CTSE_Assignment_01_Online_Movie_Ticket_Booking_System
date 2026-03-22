@@ -9,8 +9,9 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const authController = require('./controllers/authController');
 
+const { PORT } = require("./config");
+
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
