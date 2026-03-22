@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   createMovieFormData,
   createShow,
@@ -45,8 +47,9 @@ export default function Admin() {
 
   const [movieId, setMovieId] = useState("");
   const [theaterId, setTheaterId] = useState("");
-  const [showStart, setShowStart] = useState("");
-  const [showEnd, setShowEnd] = useState("");
+  /** Calendar + time; `timeIntervals={1}` = every minute (not 15-minute steps). */
+  const [showStart, setShowStart] = useState(null);
+  const [showEnd, setShowEnd] = useState(null);
   const [showMsg, setShowMsg] = useState("");
   const [showLoading, setShowLoading] = useState(false);
 
@@ -73,6 +76,23 @@ export default function Admin() {
     refreshMovies();
     refreshTheaters();
   }, []);
+
+  /** Start of today (local) — no past calendar days for show scheduling. */
+  const minDateToday = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  /** Block times at or before “now” when the picked day is today. */
+  const filterStartTimeNotInPast = (time) => time.getTime() > Date.now();
+
+  /** End must be after now and strictly after start when both apply. */
+  const filterEndTimeNotInPast = (time) => {
+    if (time.getTime() <= Date.now()) return false;
+    if (showStart && time.getTime() <= showStart.getTime()) return false;
+    return true;
+  };
 
   const handleAddMovie = async (e) => {
     e.preventDefault();
@@ -155,21 +175,30 @@ export default function Admin() {
     setShowMsg("");
     setShowLoading(true);
     try {
-      const startTime = new Date(showStart).toISOString();
-      const endTime = new Date(showEnd).toISOString();
-      if (!theaterId || Number.isNaN(new Date(showStart).getTime()) || Number.isNaN(new Date(showEnd).getTime())) {
-        throw new Error("Select a hall and valid start/end times.");
+      if (!showStart || !showEnd) {
+        throw new Error("Pick start and end date/time using the calendar.");
       }
+      if (!movieId) {
+        throw new Error("Select a movie.");
+      }
+      if (!theaterId) {
+        throw new Error("Select a hall.");
+      }
+      const startTime = showStart.toISOString();
+      const endTime = showEnd.toISOString();
       if (new Date(endTime) <= new Date(startTime)) {
         throw new Error("End time must be after start time.");
+      }
+      if (new Date(startTime) < new Date()) {
+        throw new Error("Start time cannot be in the past.");
       }
 
       const payload = { movieId, theaterId, startTime, endTime };
 
       await createShow(payload);
       notify("Show created successfully.", "success");
-      setShowStart("");
-      setShowEnd("");
+      setShowStart(null);
+      setShowEnd(null);
     } catch (err) {
       const msg =
         err.response?.data?.message ||
@@ -332,20 +361,48 @@ export default function Admin() {
             </div>
             <div className="form-group">
               <label>Start</label>
-              <input
-                type="datetime-local"
-                value={showStart}
-                onChange={(e) => setShowStart(e.target.value)}
-                required
+              <DatePicker
+                selected={showStart}
+                onChange={(date) => {
+                  setShowStart(date);
+                  if (date && showEnd && showEnd <= date) {
+                    setShowEnd(null);
+                  }
+                }}
+                minDate={minDateToday}
+                filterTime={filterStartTimeNotInPast}
+                showTimeSelect
+                timeIntervals={1}
+                timeCaption="Time"
+                dateFormat="MMM d, yyyy h:mm aa"
+                placeholderText="Click to pick date & time…"
+                isClearable
+                wrapperClassName="admin-datepicker-wrap"
+                popperPlacement="bottom-start"
+                calendarClassName="admin-datepicker-calendar"
               />
+              <span className="admin-hint admin-hint--inline">
+                Only today or future dates; past times today are hidden. Times use 1-minute steps.
+              </span>
             </div>
             <div className="form-group">
               <label>End</label>
-              <input
-                type="datetime-local"
-                value={showEnd}
-                onChange={(e) => setShowEnd(e.target.value)}
-                required
+              <DatePicker
+                selected={showEnd}
+                onChange={(date) => setShowEnd(date)}
+                minDate={
+                  showStart && showStart >= minDateToday ? showStart : minDateToday
+                }
+                filterTime={filterEndTimeNotInPast}
+                showTimeSelect
+                timeIntervals={1}
+                timeCaption="Time"
+                dateFormat="MMM d, yyyy h:mm aa"
+                placeholderText="Pick end date & time…"
+                isClearable
+                wrapperClassName="admin-datepicker-wrap"
+                popperPlacement="bottom-start"
+                calendarClassName="admin-datepicker-calendar"
               />
             </div>
             <button type="submit" className="btn btn--primary" disabled={showLoading}>
