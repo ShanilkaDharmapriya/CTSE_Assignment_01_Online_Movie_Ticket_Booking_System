@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  API_BASE_URL,
   deleteMovieById,
   deleteShowById,
   fetchBookings,
@@ -23,6 +24,8 @@ const formatDateTime = (value) => {
 };
 
 const asList = (value) => (Array.isArray(value) ? value : []);
+
+const posterUrlForMovie = (movieId) => `${API_BASE_URL}/movies/${movieId}/poster`;
 
 export default function AdminManage() {
   const [activeSection, setActiveSection] = useState("all");
@@ -251,6 +254,7 @@ export default function AdminManage() {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th>Poster</th>
                     <th>Title</th>
                     <th>Genre</th>
                     <th>Duration</th>
@@ -262,6 +266,18 @@ export default function AdminManage() {
                 <tbody>
                   {asList(movies).map((movie) => (
                     <tr key={movie._id}>
+                      <td>
+                        {movie.hasPoster ? (
+                          <img
+                            src={posterUrlForMovie(movie._id)}
+                            alt={`${movie.title} poster`}
+                            className="admin-movie-thumb"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="admin-thumb-fallback">No image</span>
+                        )}
+                      </td>
                       <td>{movie.title}</td>
                       <td>{Array.isArray(movie.genre) ? movie.genre.join(", ") : movie.genre}</td>
                       <td>{movie.duration} min</td>
@@ -279,7 +295,7 @@ export default function AdminManage() {
                   ))}
                   {!movies.length && (
                     <tr>
-                      <td colSpan={6}>No movies found.</td>
+                      <td colSpan={7}>No movies found.</td>
                     </tr>
                   )}
                 </tbody>

@@ -13,6 +13,11 @@ const {
 } = require("../controllers/movieController");
 
 const upload = multer({ storage: multer.memoryStorage() });
+const movieUpload = upload.fields([
+  { name: "poster", maxCount: 1 },
+  { name: "image", maxCount: 1 },
+  { name: "posterFile", maxCount: 1 },
+]);
 
 // GET  /movies                — list all movies (supports ?status=&genre=&language=)
 router.get("/", getAllMovies);
@@ -27,10 +32,10 @@ router.get("/:id", getMovieById);
 router.get("/:id/poster", getMoviePoster);
 
 // POST /movies                — create a movie
-router.post("/", requireAdmin, upload.single("poster"), createMovie);
+router.post("/", requireAdmin, movieUpload, createMovie);
 
 // PUT  /movies/:id            — update a movie
-router.put("/:id", requireAdmin, upload.single("poster"), updateMovie);
+router.put("/:id", requireAdmin, movieUpload, updateMovie);
 
 // DELETE /movies/:id          — delete a movie (cancels active shows)
 router.delete("/:id", requireAdmin, deleteMovie);

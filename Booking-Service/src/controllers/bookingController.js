@@ -19,7 +19,7 @@ async function createBookingHandler(req, res, next) {
 
 function getAllBookingsHandler(req, res) {
   // Return every booking currently saved in the store.
-  return res.status(200).json(getBookings());
+  return res.status(200).json(getBookings(req.query?.userId));
 }
 
 function getBookingByIdHandler(req, res) {

@@ -11,6 +11,15 @@ const getAuthHeaders = (req, extraHeaders = {}) => {
     : { ...extraHeaders };
 };
 
+const resolvePosterFile = (req) => {
+  if (req.file) {
+    return req.file;
+  }
+
+  const files = req.files || {};
+  return files.poster?.[0] || files.image?.[0] || files.posterFile?.[0] || null;
+};
+
 const buildMultipartPayload = (req) => {
   const form = new FormData();
 
@@ -24,10 +33,12 @@ const buildMultipartPayload = (req) => {
     }
   });
 
-  if (req.file) {
-    form.append("poster", req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
+  const posterFile = resolvePosterFile(req);
+
+  if (posterFile) {
+    form.append("poster", posterFile.buffer, {
+      filename: posterFile.originalname,
+      contentType: posterFile.mimetype,
     });
   }
 
@@ -51,6 +62,24 @@ const getMovieById = async (req, res) => {
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch movie", error: error.message });
+  }
+};
+
+// GET /movies/:id/poster
+const getMoviePoster = async (req, res) => {
+  try {
+    const response = await axios.get(`${MOVIE_SERVICE_URL}/movies/${req.params.id}/poster`, {
+      responseType: "arraybuffer",
+    });
+
+    if (response.headers["content-type"]) {
+      res.set("Content-Type", response.headers["content-type"]);
+    }
+    return res.status(200).send(response.data);
+  } catch (error) {
+    return res
+      .status(error.response?.status || 500)
+      .json({ message: "Failed to fetch movie poster", error: error.message });
   }
 };
 
@@ -98,4 +127,4 @@ const deleteMovie = async (req, res) => {
   }
 };
 
-module.exports = { getAllMovies, getMovieById, createMovie, updateMovie, deleteMovie };
+module.exports = { getAllMovies, getMovieById, getMoviePoster, createMovie, updateMovie, deleteMovie };

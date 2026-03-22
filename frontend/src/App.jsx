@@ -8,6 +8,7 @@ import ShowPage from "./pages/ShowPage.jsx";
 import Admin from "./pages/Admin.jsx";
 import AdminManage from "./pages/AdminManage.jsx";
 import Payment from "./pages/Payment.jsx";
+import MyBookings from "./pages/MyBookings.jsx";
 import "./App.css";
 
 /**
@@ -40,6 +41,20 @@ function AdminRoute() {
   );
 }
 
+function ProtectedRoute() {
+  const { user } = useAuth();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <div className="app-shell">
+      <Navbar />
+      <Outlet />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -52,6 +67,10 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/payment" element={<Payment />} />
+
+      <Route path="/my-bookings" element={<ProtectedRoute />}>
+        <Route index element={<MyBookings />} />
+      </Route>
 
       <Route path="/admin" element={<AdminRoute />}>
         <Route index element={<Admin />} />

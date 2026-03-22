@@ -35,6 +35,16 @@ export default function Navbar() {
                 </Link>
               </>
             )}
+            {!isAdmin && (
+              <>
+                <Link to="/" className="btn btn--ghost">
+                  Browse movies
+                </Link>
+                <Link to="/my-bookings" className="btn btn--ghost">
+                  My bookings
+                </Link>
+              </>
+            )}
             <button type="button" className="btn btn--ghost" onClick={handleLogout}>
               Logout
             </button>

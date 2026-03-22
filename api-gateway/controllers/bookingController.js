@@ -66,7 +66,14 @@ const updateBookingStatus = async (req, res) => {
 // GET /bookings
 const getAllBookings = async (req, res) => {
   try {
-    const response = await axios.get(`${BOOKING_SERVICE_URL}/bookings`, { params: req.query });
+    const role = String(req.auth?.user?.role || "").toLowerCase();
+    const requestParams = { ...req.query };
+
+    if (role !== "admin" && req.auth?.user?.id) {
+      requestParams.userId = req.auth.user.id;
+    }
+
+    const response = await axios.get(`${BOOKING_SERVICE_URL}/bookings`, { params: requestParams });
     res.status(200).json(response.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ message: "Failed to fetch bookings", error: error.message });

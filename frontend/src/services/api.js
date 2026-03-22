@@ -170,6 +170,12 @@ export async function fetchBookings(params = {}) {
   return Array.isArray(data) ? data.map(normalizeBookingPayload) : [];
 }
 
+export async function fetchMyBookings() {
+  const currentUser = getStoredUser();
+  const params = currentUser?.id ? { userId: currentUser.id } : {};
+  return fetchBookings(params);
+}
+
 export async function fetchPayments(params = {}) {
   const { data } = await api.get("/payments", { params });
   return Array.isArray(data) ? data.map(normalizePaymentPayload) : [];

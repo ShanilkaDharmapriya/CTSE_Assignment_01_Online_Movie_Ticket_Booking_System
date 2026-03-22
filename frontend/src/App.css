@@ -423,6 +423,21 @@
   font-weight: 600;
 }
 
+.admin-movie-thumb {
+  width: 52px;
+  height: 74px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+}
+
+.admin-thumb-fallback {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 .admin-row-actions {
   display: flex;
   align-items: center;

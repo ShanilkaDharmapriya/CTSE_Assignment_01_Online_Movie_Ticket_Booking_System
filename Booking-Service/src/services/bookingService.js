@@ -16,7 +16,7 @@ function convertToNumber(value) {
 }
 
 function validateNewBookingInput(payload) {
-  const { userId, movieId, showId, seats } = payload || {};
+  const { userId, movieId, showId, seats, bookingId, status } = payload || {};
   const requestedSeatCount = convertToNumber(seats);
 
   // Basic input check to stop invalid requests early.
@@ -34,11 +34,27 @@ function validateNewBookingInput(payload) {
     throw validationError;
   }
 
-  return { userId, movieId, showId, seats: requestedSeatCount };
+  const normalizedStatus = String(status || "PENDING_PAYMENT").toUpperCase();
+  const allowedStatuses = ["PENDING_PAYMENT", "CONFIRMED", "PAYMENT_FAILED", "CANCELLED"];
+
+  if (!allowedStatuses.includes(normalizedStatus)) {
+    const statusError = new Error("Invalid status value");
+    statusError.statusCode = 400;
+    throw statusError;
+  }
+
+  return {
+    userId,
+    movieId,
+    showId,
+    seats: requestedSeatCount,
+    bookingId: bookingId ? String(bookingId) : null,
+    status: normalizedStatus,
+  };
 }
 
 async function createBooking(payload) {
-  const { userId, movieId, showId, seats } = validateNewBookingInput(payload);
+  const { userId, movieId, showId, seats, bookingId: incomingBookingId, status } = validateNewBookingInput(payload);
 
   // Check movie exists before making a booking.
   try {
@@ -67,7 +83,7 @@ async function createBooking(payload) {
   }
 
   // Create booking id and keep it pending until frontend completes payment.
-  const bookingId = uuidv4();
+  const bookingId = incomingBookingId || uuidv4();
 
   // Save pending booking record; payment outcome is applied via status update endpoint.
   const createdBooking = addBooking({
@@ -77,15 +93,26 @@ async function createBooking(payload) {
     movieId,
     showId,
     seats,
-    status: "PENDING_PAYMENT",
+    status,
+    paymentStatus: payload?.paymentStatus ? String(payload.paymentStatus).toUpperCase() : undefined,
+    paymentId: payload?.paymentId,
+    amount: payload?.amount !== undefined ? Number(payload.amount) : undefined,
+    currency: payload?.currency ? String(payload.currency).toLowerCase() : undefined,
+    provider: payload?.provider,
+    paymentMethod: payload?.paymentMethod,
     createdAt: new Date().toISOString(),
   });
 
   return createdBooking;
 }
 
-function getBookings() {
-  return getAllBookings();
+function getBookings(userId) {
+  const allBookings = getAllBookings();
+  if (!userId) {
+    return allBookings;
+  }
+
+  return allBookings.filter((booking) => String(booking.userId) === String(userId));
 }
 
 function getBooking(bookingId) {

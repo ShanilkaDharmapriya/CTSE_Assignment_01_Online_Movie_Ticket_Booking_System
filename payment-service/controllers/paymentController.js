@@ -6,6 +6,7 @@ const {
   STRIPE_CURRENCY,
   MOVIE_SERVICE_URL,
   SHOW_SERVICE_URL,
+  BOOKING_SERVICE_URL,
 } = require("../config/config");
 
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
@@ -24,6 +25,12 @@ const showServiceCandidates = uniqueUrls([
   SHOW_SERVICE_URL,
   "http://localhost:4002",
   "http://show-service:4002",
+]);
+
+const bookingServiceCandidates = uniqueUrls([
+  BOOKING_SERVICE_URL,
+  "http://localhost:4003",
+  "http://booking-service:4003",
 ]);
 
 const requestWithFallback = async (method, baseUrls, endpoint, config = {}) => {
@@ -84,6 +91,72 @@ const updateShowSeats = async (showId, availableSeats, reservedSeats) => {
     },
     headers: { "X-Service-Key": process.env.INTERNAL_SERVICE_KEY || DEFAULT_INTERNAL_SERVICE_KEY },
   });
+};
+
+const createConfirmedBooking = async ({
+  bookingId,
+  userId,
+  movieId,
+  showId,
+  seatCount,
+  paymentData,
+}) => {
+  return requestWithFallback("post", bookingServiceCandidates, "/bookings", {
+    data: {
+      bookingId,
+      userId,
+      movieId,
+      showId,
+      seats: seatCount,
+      status: "CONFIRMED",
+      paymentStatus: paymentData.paymentStatus || "SUCCESS",
+      paymentId: paymentData.paymentId,
+      amount: paymentData.amount,
+      currency: paymentData.currency,
+      provider: paymentData.provider,
+      paymentMethod: paymentData.paymentMethod,
+    },
+  });
+};
+
+const confirmExistingBooking = async (bookingId, paymentData) => {
+  return requestWithFallback("patch", bookingServiceCandidates, `/bookings/${bookingId}/status`, {
+    data: {
+      status: "CONFIRMED",
+      paymentStatus: paymentData.paymentStatus || "SUCCESS",
+      paymentId: paymentData.paymentId,
+      amount: paymentData.amount,
+      currency: paymentData.currency,
+      provider: paymentData.provider,
+      paymentMethod: paymentData.paymentMethod,
+    },
+  });
+};
+
+const ensureBookingRecordedAfterPayment = async ({
+  bookingId,
+  userId,
+  movieId,
+  showId,
+  seatCount,
+  paymentData,
+}) => {
+  try {
+    await confirmExistingBooking(bookingId, paymentData);
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      throw error;
+    }
+
+    await createConfirmedBooking({
+      bookingId,
+      userId,
+      movieId,
+      showId,
+      seatCount,
+      paymentData,
+    });
+  }
 };
 
 const mapStripeStatus = (status) => {
@@ -181,6 +254,24 @@ const processPayment = async (req, res) => {
     }
 
     if (paymentStatus === "SUCCESS") {
+      const paymentProjection = {
+        paymentStatus,
+        paymentId: stripePaymentIntentId,
+        amount,
+        currency,
+        provider: stripe ? "stripe" : "mock",
+        paymentMethod,
+      };
+
+      await ensureBookingRecordedAfterPayment({
+        bookingId: req.body.bookingId,
+        userId: req.body.userId,
+        movieId: req.body.movieId,
+        showId: req.body.showId,
+        seatCount,
+        paymentData: paymentProjection,
+      });
+
       await updateShowSeats(
         req.body.showId,
         seatInfo.availableSeats - seatCount,

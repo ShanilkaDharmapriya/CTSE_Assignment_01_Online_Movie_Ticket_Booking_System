@@ -13,6 +13,15 @@ const ensureDbConnected = (res) => {
   return true;
 };
 
+const resolvePosterFile = (req) => {
+  if (req.file) {
+    return req.file;
+  }
+
+  const files = req.files || {};
+  return files.poster?.[0] || files.image?.[0] || files.posterFile?.[0] || null;
+};
+
 const parseArrayField = (value) => {
   if (Array.isArray(value)) return value;
   if (typeof value === "string") {
@@ -36,15 +45,17 @@ const buildMoviePayload = (req) => {
     cast: parseArrayField(req.body.cast),
   };
 
+  const posterFile = resolvePosterFile(req);
+
   if (payload.duration !== undefined) payload.duration = Number(payload.duration);
   if (payload.rating !== undefined) payload.rating = Number(payload.rating);
   if (payload.pricePerSeat !== undefined) payload.pricePerSeat = Number(payload.pricePerSeat);
 
-  if (req.file) {
+  if (posterFile) {
     payload.poster = {
-      data: req.file.buffer,
-      contentType: req.file.mimetype,
-      fileName: req.file.originalname,
+      data: posterFile.buffer,
+      contentType: posterFile.mimetype,
+      fileName: posterFile.originalname,
     };
   }
 
