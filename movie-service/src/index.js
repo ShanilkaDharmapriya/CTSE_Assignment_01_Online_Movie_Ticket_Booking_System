@@ -11,6 +11,7 @@ const movieRoutes = require("../routes/movieRoutes");
 const app = express();
 
 // Middleware
+// lhkjhkjhlhljhk
 app.use(cors());
 app.use(express.json());
 
