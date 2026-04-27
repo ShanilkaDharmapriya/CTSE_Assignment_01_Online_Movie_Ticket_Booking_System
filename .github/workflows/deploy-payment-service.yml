@@ -20,6 +20,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check SonarQube configuration
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
+            echo "SONAR_ENABLED=false" >> "$GITHUB_ENV"
+            echo "SONAR_TOKEN or SONAR_HOST_URL is not configured. Skipping SonarQube scan."
+          else
+            echo "SONAR_ENABLED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: SonarQube scan
+        if: env.SONAR_ENABLED == 'true'
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: payment-service
+          args: >
+            -Dsonar.projectKey=payment-service
+            -Dsonar.projectName=payment-service
+            -Dsonar.sources=src
 
       - name: Docker login to ACR
         env:
