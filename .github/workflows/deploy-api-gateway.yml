@@ -1,0 +1,43 @@
+name: Build and Push API Gateway
+
+on:
+  push:
+    branches: [deploy2]
+    paths:
+      - "api-gateway/**"
+      - ".github/workflows/deploy-api-gateway.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag (defaults to commit SHA)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker login to ACR
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$ACR_PASSWORD" | docker login "$ACR_LOGIN_SERVER" -u "$ACR_USERNAME" --password-stdin
+
+      - name: Build and push image
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${INPUT_IMAGE_TAG:-$GITHUB_SHA}"
+          IMAGE_NAME="$ACR_LOGIN_SERVER/api-gateway:$IMAGE_TAG"
+          docker build -t "$IMAGE_NAME" ./api-gateway
+          docker push "$IMAGE_NAME"
+          echo "Pushed $IMAGE_NAME"
