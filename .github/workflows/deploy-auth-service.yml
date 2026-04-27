@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           echo "$ACR_PASSWORD" | docker login "$ACR_LOGIN_SERVER" -u "$ACR_USERNAME" --password-stdin
 
-      - name: Build and push image
+      - name: Build image
         env:
           ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
           INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
@@ -39,5 +39,28 @@ jobs:
           IMAGE_TAG="${INPUT_IMAGE_TAG:-$GITHUB_SHA}"
           IMAGE_NAME="$ACR_LOGIN_SERVER/auth-service:$IMAGE_TAG"
           docker build -t "$IMAGE_NAME" ./auth-service
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk container scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "SNYK_TOKEN is not configured. Skipping Snyk scan."
+            exit 0
+          fi
+
+          snyk container test "$IMAGE_NAME" \
+            --file=./auth-service/Dockerfile \
+            --severity-threshold=high
+
+      - name: Push image
+        run: |
+          set -euo pipefail
           docker push "$IMAGE_NAME"
           echo "Pushed $IMAGE_NAME"
