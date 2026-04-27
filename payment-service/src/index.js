@@ -12,7 +12,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Primary payment API surface.
 app.use("/payments", paymentRoutes);
+// Backward-compatible direct payment endpoint used by some older clients.
 app.post("/pay", processPayment);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -21,6 +23,7 @@ app.get("/health", (req, res) => {
 });
 
 connectDB().then(() => {
+  // Start serving only after MongoDB connection succeeds.
   const server = app.listen(PORT, () => console.log(`Payment Service running on port ${PORT}`));
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") {

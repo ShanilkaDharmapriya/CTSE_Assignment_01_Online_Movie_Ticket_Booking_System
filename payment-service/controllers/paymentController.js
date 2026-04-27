@@ -27,6 +27,8 @@ const internalHeaders = () => ({
   "Content-Type": "application/json",
 });
 
+// Tries each candidate base URL and returns the first successful response.
+// If all fail, prefer surfacing a 404 if any upstream returned 404.
 const requestWithFallback = async (method, baseUrls, endpoint, config = {}) => {
   let notFoundError = null;
   let lastError = null;
@@ -100,6 +102,7 @@ const verifyHeldSeatsWithShowService = async ({ userId, showId, seatNumbers }) =
   });
 };
 
+// Booking is created only after a successful payment so seat ownership becomes durable.
 const createConfirmedBookingRecord = async ({
   bookingId,
   userId,
@@ -168,6 +171,7 @@ const processPayment = async (req, res) => {
   }
 
   try {
+    // Guardrail: payment is allowed only for seats currently held by this user.
     await verifyHeldSeatsWithShowService({
       userId: req.body.userId,
       showId: req.body.showId,
@@ -246,6 +250,7 @@ const processPayment = async (req, res) => {
 
     if (paymentStatus === "SUCCESS") {
       try {
+        // Payment succeeds first; then booking finalization marks seats as booked.
         await createConfirmedBookingRecord({
           bookingId: req.body.bookingId,
           userId: req.body.userId,
@@ -256,6 +261,7 @@ const processPayment = async (req, res) => {
         });
       } catch (bookingErr) {
         console.error("[PaymentService] Booking finalize failed (booking + seats)", bookingErr.message);
+        // Compensating action: avoid charging the customer if booking persistence fails.
         await refundStripePaymentIntent(stripePaymentIntentId);
         throw bookingErr;
       }
