@@ -1,7 +1,7 @@
 import axios from "axios";
 
 /** API Gateway base URL (matches your backend). */
-const configuredGatewayUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const configuredGatewayUrl = import.meta.env.VITE_API_BASE_URL || "https://api-gateway.ashymushroom-b3eb4160.southeastasia.azurecontainerapps.io";
 export const API_BASE_URL = configuredGatewayUrl.replace(/\/+$/, "");
 
 const TOKEN_KEY = "token";
