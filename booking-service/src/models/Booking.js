@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const bookingSchema = new mongoose.Schema(
   {
+    bookingReference: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+    },
     bookingId: {
       type: String,
       required: true,
@@ -51,5 +58,12 @@ const bookingSchema = new mongoose.Schema(
 );
 
 bookingSchema.index({ userId: 1, createdAt: -1 });
+
+bookingSchema.pre("validate", function setBookingReference(next) {
+  if (!this.bookingReference && this.bookingId) {
+    this.bookingReference = this.bookingId;
+  }
+  next();
+});
 
 module.exports = mongoose.models.Booking || mongoose.model("Booking", bookingSchema);

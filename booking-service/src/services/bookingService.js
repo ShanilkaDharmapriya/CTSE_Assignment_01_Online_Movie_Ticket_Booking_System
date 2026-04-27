@@ -98,6 +98,7 @@ async function createBooking(payload) {
   let doc;
   try {
     doc = await Booking.create({
+      bookingReference: bookingId,
       bookingId,
       userId: validated.userId,
       movieId: validated.movieId,

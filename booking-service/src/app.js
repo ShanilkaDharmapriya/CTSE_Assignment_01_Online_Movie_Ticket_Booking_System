@@ -5,9 +5,9 @@ const swaggerUi = require("swagger-ui-express");
 const { connectToDatabase } = require("./config/db");
 const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerSpec = require("./config/swagger");
-const { PORT } = require("../config/config");
 
 const app = express();
+const PORT = process.env.PORT || 4003;
 
 app.use(express.json());
 app.use(bookingRoutes);
