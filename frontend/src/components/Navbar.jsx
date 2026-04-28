@@ -12,9 +12,11 @@ export default function Navbar() {
 
   return (
     <header className="navbar">
+      <style color="blue">
       <Link to={isAdmin ? "/admin" : "/"} className="navbar__brand">
         CINE<span>BOOK</span>
       </Link>
+      </style>
       <div className="navbar__actions">
         {user && (
           <>
