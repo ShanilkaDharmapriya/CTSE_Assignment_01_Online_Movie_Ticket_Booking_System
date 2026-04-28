@@ -1,27 +1,45 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
+const connectDB = require("../config/db");
+const { PORT } = require("../config/config");
+const swaggerSpec = require("../config/swagger");
+const movieRoutes = require("../routes/movieRoutes");
 
 const app = express();
+
+// Middleware
+// lhkjhkjhlhljhk
 app.use(cors());
 app.use(express.json());
 
-const PORT = 4001;
+// Routes
+app.use("/movies", movieRoutes);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Dummy data
-let movies = [
-  { id: 1, title: "Inception", price: 10 },
-  { id: 2, title: "Interstellar", price: 12 }
-];
-
-// Get all movies
-app.get("/movies", (req, res) => {
-  res.json(movies);
+// Health check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "Movie Service is running" });
 });
 
-// Get movie by ID
-app.get("/movies/:id", (req, res) => {
-  const movie = movies.find(m => m.id == req.params.id);
-  res.json(movie);
+// Start API even if DB is unavailable, so health and non-DB routes remain reachable.
+connectDB().then((isDbConnected) => {
+  if (!isDbConnected) {
+    console.warn("Starting movie-service without a database connection.");
+  }
+  const server = app.listen(PORT, () => {
+    console.log(`Movie Service running on port ${PORT}`);
+  });
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(
+        `Port ${PORT} is already in use. Stop the existing movie-service process before starting a new one.`
+      );
+      process.exit(1);
+    }
+    console.error("Server failed to start:", error);
+    process.exit(1);
+  });
 });
-
-app.listen(PORT, () => console.log(`Movie Service running on ${PORT}`));

@@ -1,0 +1,95 @@
+name: Build and Push Payment Service
+
+on:
+  push:
+    branches: [deploy2]
+    paths:
+      - "payment-service/**"
+      - ".github/workflows/deploy-payment-service.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag (defaults to commit SHA)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check SonarQube configuration
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_HOST_URL" ]; then
+            echo "SONAR_ENABLED=false" >> "$GITHUB_ENV"
+            echo "SONAR_TOKEN or SONAR_HOST_URL is not configured. Skipping SonarQube scan."
+          else
+            echo "SONAR_ENABLED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: SonarQube scan
+        if: env.SONAR_ENABLED == 'true'
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: payment-service
+          args: >
+            -Dsonar.projectKey=payment-service
+            -Dsonar.projectName=payment-service
+            -Dsonar.sources=src
+
+      - name: Docker login to ACR
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$ACR_PASSWORD" | docker login "$ACR_LOGIN_SERVER" -u "$ACR_USERNAME" --password-stdin
+
+      - name: Build image
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${INPUT_IMAGE_TAG:-$GITHUB_SHA}"
+          IMAGE_NAME="$ACR_LOGIN_SERVER/payment-service:$IMAGE_TAG"
+          docker build -t "$IMAGE_NAME" ./payment-service
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk container scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "SNYK_TOKEN is not configured. Skipping Snyk scan."
+            exit 0
+          fi
+
+          snyk container test "$IMAGE_NAME" \
+            --file=./payment-service/Dockerfile \
+            --severity-threshold=high
+
+      - name: Push image
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE_NAME"
+          echo "Pushed $IMAGE_NAME"

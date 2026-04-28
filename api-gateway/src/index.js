@@ -1,29 +1,37 @@
-// 
+require("dotenv").config();
 const express = require("express");
-const axios = require("axios");
 const cors = require("cors");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
+
+const authRoutes    = require("../routes/authRoutes");
+const movieRoutes   = require("../routes/movieRoutes");
+const showRoutes    = require("../routes/showRoutes");
+const bookingRoutes = require("../routes/bookingRoutes");
+const paymentRoutes = require("../routes/paymentRoutes");
+const seatRoutes = require("../routes/seatRoutes");
+const theaterRoutes = require("../routes/theaterRoutes");
 
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-const PORT = 3000;
+// Mount service routes
+app.use("/auth",     authRoutes);
+app.use("/movies",   movieRoutes);
+app.use("/theaters", theaterRoutes);
+app.use("/shows",    showRoutes);
+app.use("/bookings", bookingRoutes);
+app.use("/payments", paymentRoutes);
+app.use("/seats", seatRoutes);
 
-// Aggregator: Get movie + shows
-app.get("/movies/:id/details", async (req, res) => {
-  try {
-    const movieId = req.params.id;
-
-    const movie = await axios.get(`http://localhost:4001/movies/${movieId}`);
-    const shows = await axios.get(`http://localhost:4002/shows?movieId=${movieId}`);
-
-    res.json({
-      movie: movie.data,
-      shows: shows.data
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Error fetching data" });
-  }
+// Health check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "API Gateway is running" });
 });
 
-app.listen(PORT, () => console.log(`API Gateway running on ${PORT}`));
+const { PORT } = require("../config/config");
+app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));
